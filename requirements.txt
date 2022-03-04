@@ -1,0 +1,11 @@
+wilds==2.0.0
+
+--find-links https://download.pytorch.org/whl/cu113/torch_stable.html
+torch==1.10.2+cu113
+
+--extra-index-url https://pypi.ngc.nvidia.com
+nvidia-cuda-runtime-cu11
+
+--find-links https://data.pyg.org/whl/torch-1.10.0+cu113.html
+torch-scatter>=2.0.5
+torch-geometric>=2.0.1
