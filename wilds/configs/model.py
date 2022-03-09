@@ -38,4 +38,7 @@ model_defaults = {
     'resnet18_ms': {
         'target_resolution': (224, 224),
     },
+    'convnet': {
+        'target_resolution': (224, 224),
+    },
 }
