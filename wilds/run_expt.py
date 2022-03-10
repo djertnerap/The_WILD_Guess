@@ -33,7 +33,6 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def main():
-    
     ''' Arg defaults are filled in according to examples/configs/ '''
     parser = argparse.ArgumentParser()
 
@@ -167,12 +166,6 @@ def main():
 
     config = parser.parse_args()
     config = populate_defaults(config)
-
-    # For the GlobalWheat detection dataset,
-    # we need to change the multiprocessing strategy or there will be
-    # too many open file descriptors.
-    if config.dataset == 'globalwheat':
-        torch.multiprocessing.set_sharing_strategy('file_system')
 
     # Set device
     if torch.cuda.is_available():
