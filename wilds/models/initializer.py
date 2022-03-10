@@ -43,7 +43,11 @@ def initialize_model(config, d_out, is_featurizer=False):
                 name=config.model,
                 d_out=d_out,
                 **config.model_kwargs)
-
+    # This is convnet added by us !!
+    elif config.model == 'convnet':
+        from models.basic_cnn import ConvNet
+        model = ConvNet(num_classes=d_out)
+        
     elif config.model == 'resnet18_ms':  # multispectral resnet 18
         from models.resnet_multispectral import ResNet18
         if featurize:
@@ -93,6 +97,7 @@ def initialize_torchvision_model(name, d_out, **kwargs):
     # construct the default model, which has the default last layer
     constructor = getattr(torchvision.models, constructor_name)
     model = constructor(**kwargs)
+    
     # adjust the last layer
     d_features = getattr(model, last_layer_name).in_features
     if d_out is None:  # want to initialize a featurizer model
