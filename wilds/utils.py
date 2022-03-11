@@ -84,7 +84,7 @@ def save_model(algorithm, epoch, best_val_metric, path):
     state['algorithm'] = algorithm.state_dict()
     state['epoch'] = epoch
     state['best_val_metric'] = best_val_metric
-    torch.save(state, path)
+    torch.save(state, path.replace(':','_'))    #replacing columns to accomodate Windows users
 
 def load(module, path, device=None, tries=2):
     """
@@ -285,7 +285,7 @@ def save_pred(y_pred, path_prefix):
     # Single tensor
     if torch.is_tensor(y_pred):
         df = pd.DataFrame(y_pred.numpy())
-        df.to_csv(path_prefix + '.csv', index=False, header=False)
+        df.to_csv(path_prefix.replace(':','_') + '.csv', index=False, header=False) #replacing columns to accomodate Windows users
     # Dictionary
     elif isinstance(y_pred, dict) or isinstance(y_pred, list):
         torch.save(y_pred, path_prefix + '.pth')
