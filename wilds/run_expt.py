@@ -27,6 +27,7 @@ from configs.utils import populate_defaults
 import configs.supported as supported
 
 import torch.multiprocessing
+from torch.utils.data.sampler import WeightedRandomSampler, SubsetRandomSampler         #for bootstrap exploration
 
 # Necessary for large images of GlobalWheat
 from PIL import ImageFile
@@ -341,6 +342,13 @@ def main():
             split,
             frac=config.frac,
             transform=transform)
+
+        merged_df = pd.merge(datasets[split]['dataset'].dataset.metadata.iloc[datasets[split]['dataset'].indices], 
+                            pd.DataFrame({"usage": datasets[split]['dataset'].dataset._split_array}), 
+                            left_index=True, right_index=True)                  #add split information as a new column with metadata
+        usage_text = list(datasets[split]['dataset']._split_names.keys())
+        merged_df['usage'] = merged_df['usage'].apply(lambda x:usage_text[int(x)] )     #convert split information id into text labels
+        merged_df.to_csv(config.log_dir + "/split_" + split + "_metadata.csv")             #export metadata per training set
 
         if split == 'train':
             datasets[split]['loader'] = get_train_loader(
