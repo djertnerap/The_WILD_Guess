@@ -31,12 +31,6 @@ parameters:
     values:
       - False
       - True
-  use_wandb:
-    value: True
-  "wandb_kwargs=project":
-    value: "wilds" 
-  :wandb_kwargs=entity":
-    value: "the-wild-guess"
 command:
   - "/home/smuchi/miniconda3/envs/wilds2/bin/python"
   - ${program}
