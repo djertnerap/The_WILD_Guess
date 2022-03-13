@@ -130,3 +130,8 @@ dmypy.json
 
 # IDE
 .idea/
+
+# Wilds -- Custom Dirs
+wilds/data/
+wilds/logs/
+wilds/wandb/

@@ -18,3 +18,13 @@ The `wilds/configs/datasets.py` file  contains default  training config for each
 The `wilds/models/initializer` is the place where the model is created/initialized (`def initialize_model(config, d_out, is_featurizer=False)`)
 
  
+To run the Visual Transformer run:
+python run_expt.py -d fmow --model vit --algorithm ERM  --root_dir ./data --loader_kwargs pin_memory=True --loader_kwargs "num_workers=26" --model_kwargs="model_size=B_16" --model_kwargs="pretrained=False" --device=0
+
+To run a WandB sweep:
+1. `wandb sweep sweep.yaml`
+2. then start as many agents as your hardware allows:
+    - `CUDA_VISIBLE_DEVICES=0 wandb agent SWEEP_ID` agent 1
+    - `CUDA_VISIBLE_DEVICES=0 wandb agent SWEEP_ID` agent 2
+
+sweep agents can be started on multiple slurm / cloud instances or hardware devices, as long as you're logged in to WandB on each machine. 

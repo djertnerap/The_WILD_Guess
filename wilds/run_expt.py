@@ -176,7 +176,7 @@ def main():
         config.use_data_parallel = len(config.device) > 1
         device_str = ",".join(map(str, config.device))
         os.environ["CUDA_VISIBLE_DEVICES"] = device_str
-        config.device = torch.device("cuda")
+        config.device = torch.device(f"cuda:{config.device[0]}")
     else:
         config.use_data_parallel = False
         config.device = torch.device("cpu")

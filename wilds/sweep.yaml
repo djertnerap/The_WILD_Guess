@@ -1,0 +1,43 @@
+program: run_expt.py
+method: grid
+metric:
+  name: validation_loss
+  goal: minimize
+parameters:
+  dataset:
+    value: fmow
+  model:
+    value: vit
+  algorithm:
+    values:
+      - ERM
+      - groupDRO
+      - deepCORAL
+      - IRM
+      - DANN
+      - AFN
+      - FixMatch
+      - PseudoLabel
+      - NoisyStudent
+  root_dir:
+    value: ./data
+  loader_kwargs:
+    value: "num_workers=26"
+  "model_kwargs=model_size":
+    values: 
+      - "B_16"
+      - "B_32"
+  "model_kwargs=pretrained":
+    values:
+      - False
+      - True
+  use_wandb:
+    value: True
+  "wandb_kwargs=project":
+    value: "wilds" 
+  :wandb_kwargs=entity":
+    value: "the-wild-guess"
+command:
+  - "/home/smuchi/miniconda3/envs/wilds2/bin/python"
+  - ${program}
+  - ${args}
