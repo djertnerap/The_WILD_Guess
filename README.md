@@ -5,7 +5,7 @@
 
 To train the model:
 - Go to the wilds folder
-- Execute: `./run_expt.py -d fmow --algorithm ERM  --root_dir ./data --download` 
+- Execute: `python run_expt.py -d fmow --algorithm ERM  --root_dir ./data --download`
 
 
 To add data loading workers, add this argument to the `run_expt.py`: `--loader_kwargs "num_workers=8"`

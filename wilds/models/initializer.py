@@ -47,6 +47,9 @@ def initialize_model(config, d_out, is_featurizer=False):
     elif config.model == 'convnet':
         from models.basic_cnn import ConvNet
         model = ConvNet(num_classes=d_out)
+    elif config.model == 'vit':
+        from models.vit import ViT
+        model = ViT(num_classes=d_out, **config.model_kwargs)
         
     elif config.model == 'resnet18_ms':  # multispectral resnet 18
         from models.resnet_multispectral import ResNet18
