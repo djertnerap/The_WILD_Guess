@@ -43,6 +43,7 @@ model_defaults = {
     },
     'vit': {
         'model_kwargs': {
+            'model_size': 'B_16',
             'pretrained': True,
         },
         'target_resolution': (224, 224),

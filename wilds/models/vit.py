@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import ViTFeatureExtractor, ViTForImageClassification
-from pytorch_pretrained_vit import ViT
+import pytorch_pretrained_vit
 
 from transformers import ViTForImageClassification
 
@@ -15,10 +15,14 @@ class Identity(torch.nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, model_size='B_16', pretrained=True):
         super().__init__()
-        self.network = ViT(
-            'B_16', pretrained=True
+
+        print('Model size: ', model_size)
+        print('Pretrained: ', pretrained)
+
+        self.network = pytorch_pretrained_vit.ViT(
+            model_size, pretrained=pretrained
         )
         self.n_outputs = num_classes
 
