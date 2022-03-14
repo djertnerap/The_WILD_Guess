@@ -130,3 +130,9 @@ dmypy.json
 
 # IDE
 .idea/
+
+# Data
+data/
+
+# Results
+logs/
