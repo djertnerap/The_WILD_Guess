@@ -1,10 +1,15 @@
 import copy
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 import math
 
 from configs.supported import process_outputs_functions, process_pseudolabels_functions
 from utils import save_model, save_pred, get_pred_prefix, get_model_prefix, collate_list, detach_and_clone, InfiniteDataIterator
+
+from abstention.calibration import TempScaling
+from abstention.label_shift import EMImbalanceAdapter
+
 
 def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabeled_dataset=None):
     if dataset['verbose']:
@@ -147,6 +152,9 @@ def train(algorithm, datasets, general_logger, config, epoch_offset, best_val_me
 def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
     algorithm.eval()
     torch.set_grad_enabled(False)
+
+    valid_labels = None
+    valid_preds = None
     for split, dataset in datasets.items():
         if (not config.evaluate_all_splits) and (split not in config.eval_splits):
             continue
@@ -154,10 +162,16 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_pred = []
         epoch_metadata = []
         iterator = tqdm(dataset['loader']) if config.progress_bar else dataset['loader']
+
+        epoch_prediction_probabilities = []
         for batch in iterator:
             batch_results = algorithm.evaluate(batch)
             epoch_y_true.append(detach_and_clone(batch_results['y_true']))
             y_pred = detach_and_clone(batch_results['y_pred'])
+
+            if config.correct_label_shift:
+                epoch_prediction_probabilities.append(y_pred)
+
             if config.process_outputs_function is not None:
                 y_pred = process_outputs_functions[config.process_outputs_function](y_pred)
             epoch_y_pred.append(y_pred)
@@ -166,6 +180,32 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_pred = collate_list(epoch_y_pred)
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
+        epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
+
+        if config.correct_label_shift:
+            # Set predictions to probabilities if any of them doesn't sum to 1.
+            predictions_sums = torch.unique(torch.sum(epoch_prediction_probabilities, dim=1))
+            if len(predictions_sums[0].shape) > 1 or predictions_sums[0][0] != 1:
+                epoch_prediction_probabilities = F.softmax(epoch_prediction_probabilities, dim=1)
+
+            if split == 'train':
+                valid_labels = F.one_hot(epoch_y_true, num_classes=epoch_prediction_probabilities.shape[1]).detach().cpu().numpy()
+                valid_preds = epoch_prediction_probabilities.detach().cpu().numpy()
+            else:
+                # Correct predictions
+                evaluation_preds = epoch_prediction_probabilities.detach().cpu().numpy()
+                bcts_calibrator_factory = TempScaling(verbose=False, bias_positions='all')
+                imbalance_adapter = EMImbalanceAdapter(calibrator_factory=bcts_calibrator_factory)
+                imbalance_adapter_func = imbalance_adapter(valid_labels=valid_labels,
+                                                           tofit_initial_posterior_probs=evaluation_preds,
+                                                           valid_posterior_probs=valid_preds)
+                adapted_shifted_test_preds = imbalance_adapter_func(evaluation_preds)
+
+                # Reformat results to wilds example format (torch tensor with scalar label)
+                epoch_y_pred = torch.from_numpy(adapted_shifted_test_preds)
+                if config.process_outputs_function is not None:
+                    epoch_y_pred = process_outputs_functions[config.process_outputs_function](epoch_y_pred)
+
         results, results_str = dataset['dataset'].eval(
             epoch_y_pred,
             epoch_y_true,
@@ -179,6 +219,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         # Skip saving train preds, since the train loader generally shuffles the data
         if split != 'train':
             save_pred_if_needed(epoch_y_pred, dataset, epoch, config, is_best, force_save=True)
+
 
 def infer_predictions(model, loader, config):
     """

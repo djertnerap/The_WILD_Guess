@@ -33,6 +33,7 @@ from torch.utils.data.sampler import WeightedRandomSampler, SubsetRandomSampler 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+
 def main():
     ''' Arg defaults are filled in according to examples/configs/ '''
     parser = argparse.ArgumentParser()
@@ -157,6 +158,7 @@ def main():
     parser.add_argument('--no_group_logging', type=parse_bool, const=True, nargs='?')
     parser.add_argument('--progress_bar', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--resume', type=parse_bool, const=True, nargs='?', default=False, help='Whether to resume from the most recent saved model in the current log_dir.')
+    parser.add_argument('--correct_label_shift', type=parse_bool, const=True, nargs='?', default=False, help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
 
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
@@ -328,7 +330,7 @@ def main():
     # Configure labeled torch datasets (WILDS dataset splits)
     datasets = defaultdict(dict)
     for split in full_dataset.split_dict.keys():
-        if split=='train':
+        if split == 'train':
             transform = train_transform
             verbose = True
         elif split == 'val':
@@ -453,7 +455,10 @@ def main():
         if config.eval_epoch is None:
             eval_model_path = model_prefix + 'epoch:best_model.pth'
         else:
-            eval_model_path = model_prefix +  f'epoch:{config.eval_epoch}_model.pth'
+            eval_model_path = model_prefix + f'epoch:{config.eval_epoch}_model.pth'
+
+        eval_model_path = eval_model_path.replace(':', '_')
+
         best_epoch, best_val_metric = load(algorithm, eval_model_path, device=config.device)
         if config.eval_epoch is None:
             epoch = best_epoch
@@ -476,5 +481,6 @@ def main():
         datasets[split]['eval_logger'].close()
         datasets[split]['algo_logger'].close()
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     main()
