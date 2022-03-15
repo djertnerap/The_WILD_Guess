@@ -17,4 +17,16 @@ The `wilds/configs/datasets.py` file  contains default  training config for each
 
 The `wilds/models/initializer` is the place where the model is created/initialized (`def initialize_model(config, d_out, is_featurizer=False)`)
 
- 
+## Model evaluation with label shift correction
+
+### Expectation Minimization + Bias Corrected Temperature Scaling
+
+Since this method requires probability distributions as predictions, an additional softmax is applied if any prediction doesn't sum to 1. 
+To activate both while training & evaluating, add the argument `--correct_label_shift`.
+
+Example to evaluate best model from `logs` folder:
+```commandline
+python wilds_examples -d fmow --algorithm ERM --root_dir ./data --download --model convnet
+--frac 0.01 --loader_kwargs "num_workers=8" --loader_kwargs pin_memory=True --correct_label_shift
+--log_dir ./logs --eval_only
+```
