@@ -180,12 +180,13 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_pred = collate_list(epoch_y_pred)
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
-        epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
+        if config.correct_label_shift:
+            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
 
         if config.correct_label_shift:
             # Set predictions to probabilities if any of them doesn't sum to 1.
             predictions_sums = torch.unique(torch.sum(epoch_prediction_probabilities, dim=1))
-            if len(predictions_sums[0].shape) > 1 or predictions_sums[0][0] != 1:
+            if len(predictions_sums[0].shape) > 1 or predictions_sums[0] != 1:
                 epoch_prediction_probabilities = F.softmax(epoch_prediction_probabilities, dim=1)
 
             if split == 'train':
