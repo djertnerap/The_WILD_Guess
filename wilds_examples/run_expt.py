@@ -348,8 +348,9 @@ def main():
         merged_df = pd.merge(datasets[split]['dataset'].dataset.metadata.iloc[datasets[split]['dataset'].indices], 
                             pd.DataFrame({"usage": datasets[split]['dataset'].dataset._split_array}), 
                             left_index=True, right_index=True)                  #add split information as a new column with metadata
-        usage_text = list(datasets[split]['dataset']._split_names.keys())
+        usage_text = list(datasets[split]['dataset']._split_names.values())
         merged_df['usage'] = merged_df['usage'].apply(lambda x:usage_text[int(x)] )     #convert split information id into text labels
+        merged_df['region'] = merged_df['region'].apply(lambda x:datasets[split]['dataset'].metadata_map['region'][x])
         merged_df.to_csv(config.log_dir + "/split_" + split + "_metadata.csv")             #export metadata per training set
 
         if split == 'train':
