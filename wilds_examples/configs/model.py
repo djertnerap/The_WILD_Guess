@@ -41,4 +41,16 @@ model_defaults = {
     'convnet': {
         'target_resolution': (224, 224),
     },
+    'convnext_base': {
+        'model_kwargs': {
+            'pretrained': True,
+        },
+        'target_resolution': (224, 224),
+    },
+    'convnext_large': {
+        'model_kwargs': {
+            'pretrained': True,
+        },
+        'target_resolution': (224, 224),
+    },
 }
