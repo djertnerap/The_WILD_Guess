@@ -160,6 +160,11 @@ def main():
     parser.add_argument('--resume', type=parse_bool, const=True, nargs='?', default=False, help='Whether to resume from the most recent saved model in the current log_dir.')
     parser.add_argument('--correct_label_shift', type=parse_bool, const=True, nargs='?', default=False, help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
 
+    # Weighted ERM
+    parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
+    parser.add_argument('--estimate_target_dist', type=parse_bool, const=True, nargs='?', default=False)
+
+
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--wandb_api_key_path', type=str,
