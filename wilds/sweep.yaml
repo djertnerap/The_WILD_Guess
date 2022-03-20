@@ -1,11 +1,13 @@
 program: run_expt.py
 method: grid
 metric:
-  name: validation_loss
-  goal: minimize
+  name: acc_worst_region
+  goal: maximize
 parameters:
   dataset:
     value: fmow
+  frac:
+    value: 0.001
   model:
     value: vit
   algorithm:
@@ -31,6 +33,13 @@ parameters:
     values:
       - False
       - True
+  "wandb_kwargs=project":
+    value: "wilds-0.001"
+  "wandb_kwargs=entity":
+    value: "smuchi"
+early_terminate:
+  type: hyperband
+  min_iter: 10
 command:
   - "/home/smuchi/miniconda3/envs/wilds2/bin/python"
   - ${program}

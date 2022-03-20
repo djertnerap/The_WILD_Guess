@@ -1,8 +1,10 @@
+from pyexpat import model
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import ViTFeatureExtractor, ViTForImageClassification
 import pytorch_pretrained_vit
+from pytorch_pretrained_vit.configs import PRETRAINED_MODELS
+from transformers import ViTFeatureExtractor, ViTForImageClassification
 
 from transformers import ViTForImageClassification
 
@@ -15,47 +17,21 @@ class Identity(torch.nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, num_classes, model_size='B_16', pretrained=True):
+    def __init__(self, model_size='B_16', pretrained=True, featurize=False, d_out=62):
         super().__init__()
 
         print('Model size: ', model_size)
         print('Pretrained: ', pretrained)
 
         self.network = pytorch_pretrained_vit.ViT(
-            model_size, pretrained=pretrained
+            model_size, pretrained=pretrained,
         )
-        self.n_outputs = num_classes
+
+        if featurize:
+            self.network.fc = Identity()
+            self.d_out = PRETRAINED_MODELS[model_size]['config']['representation_size']
+
 
     def forward(self, x):
-        out = self.network(x)
-        return out
-
-
-# class ViT(nn.Module):
-#     def __init__(self,num_classes=1024):
-#         super().__init__()
-
-#         self.transformer_feature_extractor = ViTFeatureExtractor.from_pretrained('facebook/deit-base-patch16-224')
-#         network = ViTForImageClassification.from_pretrained(
-#             'facebook/deit-base-patch16-224', 
-#             num_labels=num_classes,
-#         )
-
-#         self.network = network
-    
-#     def forward(self, xb):
-#         print(xb.shape)
-#         inputs = self.transformer_feature_extractor(xb.cpu(), return_tensors="pt")
-
-#         print(inputs.shape)
-
-#         outputs = self.network(**inputs)
-
-#         print(outputs.shape)
-
-#         return outputs
-
-# if __name__ == "__main__":
-#     vit = ViT(10)
-
-#     print(vit.eval())
+        x = self.network(x)
+        return x

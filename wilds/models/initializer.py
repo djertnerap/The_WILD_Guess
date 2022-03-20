@@ -49,8 +49,14 @@ def initialize_model(config, d_out, is_featurizer=False):
         model = ConvNet(num_classes=d_out)
     elif config.model == 'vit':
         from models.vit import ViT
-        model = ViT(num_classes=d_out, **config.model_kwargs)
-        
+        if featurize:
+            featurizer = ViT(featurize=featurize, **config.model_kwargs)
+            d_dim = featurizer.d_out
+            classifier = nn.Linear(d_dim, d_out)
+            model = (featurizer, classifier)
+        else:
+            model = ViT(featurize=featurize, **config.model_kwargs)
+
     elif config.model == 'resnet18_ms':  # multispectral resnet 18
         from models.resnet_multispectral import ResNet18
         if featurize:
