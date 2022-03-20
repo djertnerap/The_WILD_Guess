@@ -18,3 +18,8 @@ The `wilds/configs/datasets.py` file  contains default  training config for each
 The `wilds/models/initializer` is the place where the model is created/initialized (`def initialize_model(config, d_out, is_featurizer=False)`)
 
  
+To run the convnext base run:
+python run_expt.py -d fmow --model convnext_base --algorithm ERM  --root_dir ./data --loader_kwargs pin_memory=True --loader_kwargs "num_workers=10" --model_kwargs="pretrained=False" --device=0
+
+To run the convnext large run:
+python run_expt.py -d fmow --model convnext_large --algorithm ERM  --root_dir ./data --loader_kwargs pin_memory=True --loader_kwargs "num_workers=10" --model_kwargs="pretrained=False" --device=0
