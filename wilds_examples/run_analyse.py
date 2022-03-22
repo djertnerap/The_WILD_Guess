@@ -59,6 +59,7 @@ def main():
         metadata_df.year = metadata_df.year + 2002 
         metadata_df = metadata_df[metadata_df['region'] != 'Other']       
         sns.histplot(x="year", hue="usage", data=metadata_df, bins=16, element="step")
+        plt.legend(["OOD Val", "Train", "OOD Test", "ID Val", "ID Test"], loc='upper right')
         plt.title('Dataset split distribution according to years')
         plt.savefig(args.log_dir + "/dist_split_ds.png")
         if args.show: plt.show() 
@@ -68,6 +69,9 @@ def main():
         .div(metadata_df.groupby(['usage']).size(), axis=0).mul(100) \
         .plot(kind = 'barh', stacked = True)
         plt.title('Dataset split distribution (%) according to regions')
+        plt.legend(loc="lower center", bbox_to_anchor =(0.5,-0.16), ncol=5)
+        plt.xlabel("Split distribution (%)")
+        plt.ylabel("Split Dataset")
         plt.savefig(args.log_dir + "/dist_region_ds.png")
         if args.show: plt.show()
 
@@ -88,8 +92,30 @@ def main():
     plt.savefig(args.log_dir + "/global_acc_ds.png",)
     if args.show: plt.show() 
 
-    #TBC: courbes de distribution pour training par groupes
-    #TBC: loss curves per groupe to explore overfitting per group
+    #Sample distribution per group
+    group_idx = [re.sub('loss_group:','',idx) for idx in algo_df.keys() if 'loss_group' in idx]
+    temp_df =  pd.melt(algo_df,["batch","split"],['count_group:' + idx for idx in group_idx])
+    temp_df = temp_df[temp_df['split']=='train']
+    sns.lineplot(x="batch", y='value', hue="variable", data=temp_df)
+    plt.title('Sample count per training group vs batch number')
+    plt.savefig(args.log_dir + "/group_train_count.png")
+    if args.show: plt.show()
+
+    #Validation Loss per group
+    temp_df =  pd.melt(algo_df,["epoch","split"],['loss_group:' + idx for idx in group_idx])
+    temp_df = temp_df[temp_df['split']=='ood_val']
+    sns.lineplot(x="epoch", y='value', hue="variable", data=temp_df)
+    plt.title('Validation Loss per training group vs training epoch ')
+    plt.savefig(args.log_dir + "/group_val_loss.png")
+    if args.show: plt.show()
+
+    #Test accuracy per group
+    temp_df =  pd.melt(algo_df,["epoch","split"],['acc_group:' + idx for idx in group_idx])
+    temp_df = temp_df[temp_df['split']=='ood_test']
+    sns.lineplot(x="epoch", y='value', hue="variable", data=temp_df)
+    plt.title('Test Accuracy per training group vs training epoch ')
+    plt.savefig(args.log_dir + "/group_test_acc.png")
+    if args.show: plt.show()
 
     #Key Performance Indicators extraction 
 
