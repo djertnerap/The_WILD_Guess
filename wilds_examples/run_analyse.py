@@ -59,7 +59,7 @@ def main():
         metadata_df.year = metadata_df.year + 2002 
         metadata_df = metadata_df[metadata_df['region'] != 'Other']       
         sns.histplot(x="year", hue="usage", data=metadata_df, bins=16, element="step")
-        plt.legend(["OOD Val", "Train", "OOD Test", "ID Val", "ID Test"], loc='upper right')
+        #plt.legend(["OOD Val", "Train", "OOD Test", "ID Val", "ID Test"], loc='upper right')
         plt.title('Dataset split distribution according to years')
         plt.savefig(args.log_dir + "/dist_split_ds.png")
         if args.show: plt.show() 
