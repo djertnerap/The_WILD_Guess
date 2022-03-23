@@ -192,10 +192,11 @@ def main():
 
     main_log_dir = config.log_dir
 
-    for bag_seed in config.bagging_seeds:
-        if config.bagging:
+    for bag_seed in config.bagging_seeds:           #Bagging loop
+        if config.bagging:          #Bagging adaptation if used
+            logger.write(f'Bagging with seed {bag_seed}.')
             config.seed = bag_seed
-            config.log_dir = main_log_dir + str(bag_seed)
+            config.log_dir = main_log_dir + "/bag" + str(bag_seed) + "/"
 
         # Initialize logs
         if os.path.exists(config.log_dir) and config.resume:
@@ -492,11 +493,11 @@ def main():
 
         if config.use_wandb:
             wandb.finish()
-        logger.close()
         for split in datasets:
             datasets[split]['eval_logger'].close()
             datasets[split]['algo_logger'].close()
-
+    sys.stdout.close()
+    logger.close()
 
 if __name__ == '__main__':
     main()
