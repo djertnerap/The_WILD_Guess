@@ -194,7 +194,6 @@ def main():
 
     for bag_seed in config.bagging_seeds:           #Bagging loop
         if config.bagging:          #Bagging adaptation if used
-            logger.write(f'Bagging with seed {bag_seed}.')
             config.seed = bag_seed
             config.log_dir = main_log_dir + "/bag" + str(bag_seed) + "/"
 
@@ -212,6 +211,9 @@ def main():
         if not os.path.exists(config.log_dir):
             os.makedirs(config.log_dir)
         logger = Logger(os.path.join(config.log_dir, 'log.txt'), mode)
+        
+        if config.bagging:          #Bagging iteration in log
+            logger.write(f'Bagging with seed {bag_seed}.')
 
         # Record config
         log_config(config, logger)
