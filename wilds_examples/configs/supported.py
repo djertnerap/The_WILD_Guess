@@ -57,3 +57,6 @@ losses = ['cross_entropy', 'lm_cross_entropy', 'MSE', 'multitask_bce', 'fasterrc
 
 # See train.py
 label_shift_estimation_data_sets = ['train', 'id_val', 'val']
+
+# See train.py
+label_shift_estimation_groupings = ['region', 'year']
