@@ -44,7 +44,7 @@ transforms = ['image_base', 'image_resize', 'image_resize_and_center_crop']
 additional_transforms = ['randaugment', 'weak']
 
 # See models/initializer.py
-models = ['resnet18_ms', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121','convnet']
+models = ['resnet18_ms', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121', 'convnet']
 
 # See optimizer.py
 optimizers = ['SGD', 'Adam', 'AdamW']
@@ -54,3 +54,6 @@ schedulers = ['linear_schedule_with_warmup', 'cosine_schedule_with_warmup', 'Red
 
 # See losses.py
 losses = ['cross_entropy', 'lm_cross_entropy', 'MSE', 'multitask_bce', 'fasterrcnn_criterion', 'cross_entropy_logits']
+
+# See train.py
+label_shift_estimation_data_sets = ['train', 'id_val', 'val']
