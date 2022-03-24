@@ -70,6 +70,16 @@ python wilds_examples/run_expt.py -d fmow --algorithm ERM --root_dir ./data --do
 --correct_label_shift id_val --log_dir ./logs --eval_only
 ```
 
+#### Grouping
+
+In order to estimate label shift per grouping in the test sets, use the argument:
+
+```commandline
+--label_shift_estimation_grouping region year
+```
+
+You can group by either region, year or both depending on which are present in the argument.
+
 ### Label Shift Correction w/ Black Box Predictors
 Note: The following method requires training two different models. The first model (baseline) can be trained using the standard ERM approach. After the baseline model is trained, we need to estimate the target label distribution on the test set. This can be done by running the following:
 
@@ -86,5 +96,3 @@ ensuring to update the following arguments to point to:
 `ypred_target`: The predictions for the OOD test set
 
 This will output a class weights file, which should be used to train a second model (using `run_expt.py`) with the additional argument `--erm_weights`.
-
-
