@@ -470,7 +470,7 @@ def main():
                 best_val_metric=best_val_metric,
                 unlabeled_dataset=unlabeled_dataset,
             )
-        else:
+        elif not config.bagging:
             if config.eval_epoch is None:
                 eval_model_path = model_prefix + 'epoch:best_model.pth'
             else:
@@ -498,6 +498,40 @@ def main():
         for split in datasets:
             datasets[split]['eval_logger'].close()
             datasets[split]['algo_logger'].close()
+
+    if config.bagging:
+        
+        algorithm.eval()
+        torch.set_grad_enabled(False)
+
+        #Evaluation
+        valid_labels = None
+        valid_preds = None
+        for split, dataset in datasets.items():
+
+            epoch_y_true = []
+            epoch_y_pred = []
+            epoch_metadata = []
+            iterator = dataset['loader']
+
+            epoch_prediction_probabilities = []
+            for batch in iterator:
+                batch_results = algorithm.evaluate(batch)
+                epoch_y_true.append(detach_and_clone(batch_results['y_true']))
+                y_pred = detach_and_clone(batch_results['y_pred'])
+                epoch_y_pred.append(y_pred)
+                epoch_metadata.append(detach_and_clone(batch_results['metadata']))
+
+            epoch_y_pred = collate_list(epoch_y_pred)
+            epoch_y_true = collate_list(epoch_y_true)
+            epoch_metadata = collate_list(epoch_metadata)
+            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
+
+            results, results_str = dataset['dataset'].eval(
+                epoch_y_pred,
+                epoch_y_true,
+                epoch_metadata)
+
     sys.stdout.close()
     logger.close()
 
