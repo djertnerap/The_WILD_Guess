@@ -162,6 +162,9 @@ def main():
                         nargs='?', default=None, choices=supported.label_shift_estimation_data_sets,
                         help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
 
+    # Weighted ERM
+    parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
+
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--wandb_api_key_path', type=str,

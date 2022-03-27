@@ -182,6 +182,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
 
+
         if config.correct_label_shift is not None:
             epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
             # Set predictions to probabilities if any of them doesn't sum to 1.
@@ -221,6 +222,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         # Skip saving train preds, since the train loader generally shuffles the data
         if split != 'train':
             save_pred_if_needed(epoch_y_pred, dataset, epoch, config, is_best, force_save=True)
+            save_true_if_needed(epoch_y_true, dataset, epoch, config, is_best, force_save=True)
 
 
 def infer_predictions(model, loader, config):
@@ -270,6 +272,16 @@ def save_pred_if_needed(y_pred, dataset, epoch, config, is_best, force_save=Fals
             save_pred(y_pred, prefix + f'epoch:last_pred')
         if config.save_best and is_best:
             save_pred(y_pred, prefix + f'epoch:best_pred')
+
+def save_true_if_needed(y_true, dataset, epoch, config, is_best, force_save=False):
+    if config.save_pred:
+        prefix = get_pred_prefix(dataset, config)
+        if force_save or (config.save_step is not None and (epoch + 1) % config.save_step == 0):
+            save_pred(y_true, prefix + f'TRUE_epoch:{epoch}_pred')
+        if (not force_save) and config.save_last:
+            save_pred(y_true, prefix + f'TRUE_epoch:last_pred')
+        if config.save_best and is_best:
+            save_pred(y_true, prefix + f'TRUE_epoch:best_pred')
 
 
 def save_model_if_needed(algorithm, dataset, epoch, config, is_best, best_val_metric):

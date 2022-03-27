@@ -69,3 +69,22 @@ python wilds_examples/run_expt.py -d fmow --algorithm ERM --root_dir ./data --do
 --frac 0.01 --loader_kwargs "num_workers=8" --loader_kwargs pin_memory=True 
 --correct_label_shift id_val --log_dir ./logs --eval_only
 ```
+
+### Label Shift Correction w/ Black Box Predictors
+Note: The following method requires training two different models. The first model (baseline) can be trained using the standard ERM approach. After the baseline model is trained, we need to estimate the target label distribution on the test set. This can be done by running the following:
+
+`wilds_examples/bbse/run_estimate_target_distribution.sh`
+
+ensuring to update the following arguments to point to:
+
+`yval`: The true labels for the in-domain validation set
+
+`ytest`: The true labels for the OOD test set
+
+`ypred_source`: The predictions for the in-domain validation set
+
+`ypred_target`: The predictions for the OOD test set
+
+This will output a class weights file, which should be used to train a second model (using `run_expt.py`) with the additional argument `--erm_weights`.
+
+
