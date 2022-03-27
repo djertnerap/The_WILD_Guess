@@ -162,8 +162,6 @@ def main():
 
     # Weighted ERM
     parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
-    parser.add_argument('--estimate_target_dist', type=parse_bool, const=True, nargs='?', default=False)
-
 
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
