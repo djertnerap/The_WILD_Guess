@@ -19,9 +19,6 @@ class ERM(SingleModelAlgorithm):
         )
         self.use_unlabeled_y = config.use_unlabeled_y # Expect x,y,m from unlabeled loaders and train on the unlabeled y
         self.weighted = False
-
-        if config.erm_weights and config.estimate_target_dist:
-            raise ValueError('erm_weights and estimate_target_dist cannot be set simultaneously.')
         
         if config.erm_weights:
             print("Running Weighted ERM")
@@ -91,8 +88,8 @@ class ERM(SingleModelAlgorithm):
         else:
             if self.weighted:
                 wt_ndarray = move_to(np.maximum(self.wt, 0), self.device)
-                weightfunc = lambda x,y: wt_ndarray[y]
-                wt_batch = weightfunc(results['y_pred'], results['y_true']).reshape((-1,))
+                weightfunc = lambda y: wt_ndarray[y]
+                wt_batch = weightfunc(results['y_true']).reshape((-1,))
                 loss = self.loss.loss_fn(results['y_pred'], results['y_true'])
                 labeled_loss = loss * wt_batch
                 return labeled_loss.mean()
