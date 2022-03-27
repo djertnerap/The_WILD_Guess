@@ -155,6 +155,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
 
     valid_labels = None
     valid_preds = None
+    can_apply_label_shift_correction = False
     for split, dataset in datasets.items():
         if (not config.evaluate_all_splits) and (split not in config.eval_splits):
             continue
@@ -181,17 +182,19 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
 
-        if config.correct_label_shift:
+
+        if config.correct_label_shift is not None:
             epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
             # Set predictions to probabilities if any of them doesn't sum to 1.
             predictions_sums = torch.unique(torch.sum(epoch_prediction_probabilities, dim=1))
             if len(predictions_sums[0].shape) > 1 or predictions_sums[0] != 1:
                 epoch_prediction_probabilities = F.softmax(epoch_prediction_probabilities, dim=1)
 
-            if split == 'train':
+            if config.correct_label_shift == split:
                 valid_labels = F.one_hot(epoch_y_true, num_classes=epoch_prediction_probabilities.shape[1]).detach().cpu().numpy()
                 valid_preds = epoch_prediction_probabilities.detach().cpu().numpy()
-            else:
+                can_apply_label_shift_correction = True
+            elif can_apply_label_shift_correction:
                 # Correct predictions
                 evaluation_preds = epoch_prediction_probabilities.detach().cpu().numpy()
                 bcts_calibrator_factory = TempScaling(verbose=False, bias_positions='all')

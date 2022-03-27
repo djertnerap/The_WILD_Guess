@@ -158,7 +158,9 @@ def main():
     parser.add_argument('--no_group_logging', type=parse_bool, const=True, nargs='?')
     parser.add_argument('--progress_bar', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--resume', type=parse_bool, const=True, nargs='?', default=False, help='Whether to resume from the most recent saved model in the current log_dir.')
-    parser.add_argument('--correct_label_shift', type=parse_bool, const=True, nargs='?', default=False, help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
+    parser.add_argument('--correct_label_shift', type=str, const=supported.label_shift_estimation_data_sets[0],
+                        nargs='?', default=None, choices=supported.label_shift_estimation_data_sets,
+                        help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
 
     # Weighted ERM
     parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')

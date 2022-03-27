@@ -60,13 +60,14 @@ Get online to view results... (procedure TBD)
 ### Expectation Minimization + Bias Corrected Temperature Scaling
 
 Since this method requires probability distributions as predictions, an additional softmax is applied if any prediction doesn't sum to 1. 
-To activate both while training & evaluating, add the argument `--correct_label_shift`.
+To activate both while training & evaluating, add the argument `--correct_label_shift`. 
+You can also specify the split to use for label distribution evaluation out of `train`, `id_val` & `val`. 
 
-Example to evaluate best model from `logs` folder:
+Example to evaluate best `convnet` model from `logs` folder:
 ```commandline
-python wilds_examples -d fmow --algorithm ERM --root_dir ./data --download --model convnet
---frac 0.01 --loader_kwargs "num_workers=8" --loader_kwargs pin_memory=True --correct_label_shift
---log_dir ./logs --eval_only
+python wilds_examples/run_expt.py -d fmow --algorithm ERM --root_dir ./data --download --model convnet
+--frac 0.01 --loader_kwargs "num_workers=8" --loader_kwargs pin_memory=True 
+--correct_label_shift id_val --log_dir ./logs --eval_only
 ```
 
 ### Label Shift Correction w/ Black Box Predictors
