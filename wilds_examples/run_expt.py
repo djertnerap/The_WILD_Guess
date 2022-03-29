@@ -164,6 +164,7 @@ def main():
 
     # Weighted ERM
     parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
+    parser.add_argument('--region', default='all', type=str, help='Load only particular region.')
 
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
@@ -211,13 +212,24 @@ def main():
     set_seed(config.seed)
 
     # Data
-    full_dataset = wilds.get_dataset(
-        dataset=config.dataset,
-        version=config.version,
-        root_dir=config.root_dir,
-        download=config.download,
-        split_scheme=config.split_scheme,
-        **config.dataset_kwargs)
+    if config.region != 'all':
+        print(f"Loading only data from {config.region}")
+        from datasets.fmow_dataset import FMoWDataset
+        full_dataset = FMoWDataset(
+            root_dir=config.root_dir,
+            download=config.download,
+            split_scheme=config.split_scheme,
+            region=config.region,
+            **config.dataset_kwargs
+        )
+    else:
+        full_dataset = wilds.get_dataset(
+            dataset=config.dataset,
+            version=config.version,
+            root_dir=config.root_dir,
+            download=config.download,
+            split_scheme=config.split_scheme,
+            **config.dataset_kwargs)
 
     # Transforms & data augmentations for labeled dataset
     # To modify data augmentation, modify the following code block.
@@ -415,18 +427,19 @@ def main():
     )
 
     model_prefix = get_model_prefix(datasets['train'], config)
+    model_prefix = model_prefix.replace(':', '_')
     if not config.eval_only:
         # Resume from most recent model in log_dir
         resume_success = False
         if resume:
-            save_path = model_prefix + 'epoch:last_model.pth'
+            save_path = model_prefix + 'epoch_last_model.pth'
             if not os.path.exists(save_path):
                 epochs = [
-                    int(file.split('epoch:')[1].split('_')[0])
+                    int(file.split('epoch_')[1].split('_')[0])
                     for file in os.listdir(config.log_dir) if file.endswith('.pth')]
                 if len(epochs) > 0:
                     latest_epoch = max(epochs)
-                    save_path = model_prefix + f'epoch:{latest_epoch}_model.pth'
+                    save_path = model_prefix + f'epoch_{latest_epoch}_model.pth'
             try:
                 prev_epoch, best_val_metric = load(algorithm, save_path, device=config.device)
                 epoch_offset = prev_epoch + 1
