@@ -166,6 +166,12 @@ def main():
     parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
     parser.add_argument('--region', default='all', type=str, help='Load only particular region.')
 
+    # DORO
+    parser.add_argument('--doro_alg', default=None, type=str, help='DORO algorithm to use')
+    parser.add_argument('--alpha', default=None, type=float, help='DORO Alpha.')
+    parser.add_argument('--eps', default=None, type=float, help='DORO EPS.')
+
+
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--wandb_api_key_path', type=str,
