@@ -1,3 +1,25 @@
+#
+# SOURCE: https://github.com/RuntianZ/doro
+# FROM THE PAPER
+#
+# @article{DBLP:journals/corr/abs-2106-06142,
+#   author    = {Runtian Zhai and
+#                Chen Dan and
+#                J. Zico Kolter and
+#                Pradeep Ravikumar},
+#   title     = {{DORO:} Distributional and Outlier Robust Optimization},
+#   journal   = {CoRR},
+#   volume    = {abs/2106.06142},
+#   year      = {2021},
+#   url       = {https://arxiv.org/abs/2106.06142},
+#   eprinttype = {arXiv},
+#   eprint    = {2106.06142},
+#   timestamp = {Tue, 15 Jun 2021 16:35:15 +0200},
+#   biburl    = {https://dblp.org/rec/journals/corr/abs-2106-06142.bib},
+#   bibsource = {dblp computer science bibliography, https://dblp.org}
+# }
+#
+#
 import torch
 from algorithms.single_model_algorithm import SingleModelAlgorithm
 from models.initializer import initialize_model
