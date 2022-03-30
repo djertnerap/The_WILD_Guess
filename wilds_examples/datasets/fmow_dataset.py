@@ -1,3 +1,8 @@
+"""
+SOURCE: This code is originally from the https://github.com/p-lambda/wilds.
+A few lines have been modified to fit our specific use-case.
+"""
+
 from pathlib import Path
 import shutil
 import pandas as pd
