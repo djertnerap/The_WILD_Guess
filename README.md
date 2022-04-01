@@ -36,7 +36,7 @@ The `run_analyse.py` script can be used to extract results \& make useful plots 
 
 How to use the script:
 1. Run `python run_analyse.py --log_dir <logs> --show --eval_only`
-  where `<logs>` is the path to the directory where the logs can be found, where `--show` is a boolean argument to make figure pop-ups appear sequentially (omitting it will stop the pop-ups) and where '--eval_only' only performs the KPI extract based on the evaluation logs (w/o training logs).
+  where `<logs>` is the path to the directory where the logs can be found, where `--show` is a boolean argument to make figure pop-ups appear sequentially (omitting it will stop the pop-ups) and where `--eval_only` only performs the KPI extract based on the evaluation logs (w/o training logs).
 2. All the figures & text file will be saved in the `<logs>` directory.
 3. Copy the `kpi_extract.txt` content in the above shared Excel tracker file, adding also the command line used for the model training with `run_expt.py` for tracking/reproducibility purposes.
 
