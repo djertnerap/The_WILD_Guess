@@ -1,5 +1,6 @@
 import os
 import time
+import re
 import argparse
 import pandas as pd
 import torch
@@ -159,7 +160,7 @@ def main():
     parser.add_argument('--progress_bar', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--resume', type=parse_bool, const=True, nargs='?', default=False, help='Whether to resume from the most recent saved model in the current log_dir.')
     parser.add_argument('--correct_label_shift', type=parse_bool, const=True, nargs='?', default=False, help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
-    parser.add_argument('--bagging', type=parse_bool, const=True, nargs='?', help='If true, use the Bagging method to train multiple predictors.')
+    parser.add_argument('--bagging', type=parse_bool, const=True, nargs='?', help='If true, use the Bagging method to train multiple predictors.', default=False)
     parser.add_argument('--bagging_size', default=1, type=int, help='Number of predictors for the Bagging method.')
     parser.add_argument('--bagging_seeds', type=int, nargs='+', default=[0])
 
@@ -193,7 +194,9 @@ def main():
     main_log_dir = config.log_dir
 
     for bag_seed in config.bagging_seeds:           #Bagging loop
-        if config.bagging:          #Bagging adaptation if used
+        print('baggin',  config.bagging)
+        print('eval',  config.eval_only)
+        if config.bagging & (not config.eval_only):          #Bagging adaptation if used
             config.seed = bag_seed
             config.log_dir = main_log_dir + "/bag" + str(bag_seed) + "/"
 
@@ -220,8 +223,6 @@ def main():
 
         # Set random seed
         set_seed(config.seed)
-
-
 
         # Data
         full_dataset = wilds.get_dataset(
@@ -492,46 +493,68 @@ def main():
                 general_logger=logger,
                 config=config,
                 is_best=is_best)
+        else:           #Bagging evaluation special case
+            #assert config.frac == 1         #always use the full dataset to evaluate the joint Bagging model
+            print('Evaluating Bagging')
+            bag_pred = {}
+            split_pred = {}
+            split_acc = {}
+            result_line = pd.DataFrame()
+            if config.eval_epoch is None:
+                model_name = 'last_model.pth'
+            else:
+                model_name = f'{config.eval_epoch}_model.pth'
+            # Get Bagged models
+            directories = next(os.walk(config.log_dir))[1]
+            print(directories)
+            for folder in directories: 
+                print(folder)
+                if folder.startswith('bag'):
+                    bag_pred.update({folder:{}})
+                    file_names = os.listdir(config.log_dir + "/" + folder)
+                    for file in file_names:
+                        if file.endswith(model_name):
+                            print(file)
+                            bag_seed = re.sub('bag','',folder)
+                            eval_model_path = config.log_dir + "/" + folder + "/" + file
+                            #bag_models.update({folder: eval_model_path})
+                            load(algorithm, eval_model_path, device=config.device)
+                            config.seed = bag_seed          #setting seed parameter for log file names
+                            full_preds = evaluate(
+                                            algorithm=algorithm,
+                                            datasets=datasets,
+                                            epoch='Last',
+                                            general_logger=logger,
+                                            config=config,
+                                            is_best=False)
+                            for split, (epoch_y_pred, epoch_y_true, epoch_metadata) in full_preds.items():
+                                df = pd.DataFrame({'pred cat': epoch_y_pred, 'true cat': epoch_y_true}) 
+                                df[['region','year','true true cat','split']] = epoch_metadata.detach().numpy()      #.str.split(',', expand=True).astype(int)
+                                bag_pred[folder].update({split: df})
+                                split_pred.update({split:pd.DataFrame(0,index=[i for i in range(0,len(epoch_y_pred))], columns=[i for i in range(0,62)])})
+                                bag_pred[folder][split].to_csv(config.log_dir + "/" + folder +'_' + split +'.csv', index=False, header=bag_pred[folder][split].columns)
+                                #df = pd.DataFrame(epoch_y_true.numpy())
+                                #df.to_csv(config.log_dir + "/" + folder +'_' + split +'_full_y_true.csv', index=False, header=False)
+                                #df = pd.DataFrame(epoch_metadata.numpy())
+                                #df.to_csv(config.log_dir + "/" + folder +'_' + split +'_full_y_metadata.csv', index=False, header=False)
+            for bag, df_dict in bag_pred.items():
+                for split, df in df_dict.items():
+                    split_pred[split] += pd.get_dummies(list(df['pred cat'])+[i for i in range(0,62)]).iloc[:-62]
+            for split, df in split_pred.items():
+                split_acc.update({split: pd.concat([bag_pred[next(iter(bag_pred))][split]['region'],(df.idxmax(axis=1) == bag_pred[next(iter(bag_pred))][split]['true cat']).rename('correct')],axis=1)})
+                split_acc[split].to_csv(config.log_dir + "/" + split +'_acc.csv', index=False, header=split_acc[split].columns)
+                pivott = split_acc[split].drop(split_acc[split].index[split_acc[split]['region'] == 5]).pivot_table(index=['region'],columns=['correct'],aggfunc=len)  #dropping 'Other' region for worst region analysis     
+                print(split,split_acc[split]['correct'].sum()/len(split_acc[split]))
+                result_line['Average ' + split + ' Accuracy'] = [split_acc[split]['correct'].sum()/len(split_acc[split])]
+                result_line['Average Per Region ' + split + ' Accuracy'] = [pivott.div(pivott.sum(axis=1),axis=0)[True].mean()]
+                result_line['Worst Region ' + split + ' Accuracy'] = [pivott.div(pivott.sum(axis=1),axis=0)[True].min()]
+            result_line.to_csv(config.log_dir + "/result_summary.csv", index=False, header=result_line.columns)
 
         if config.use_wandb:
             wandb.finish()
         for split in datasets:
             datasets[split]['eval_logger'].close()
             datasets[split]['algo_logger'].close()
-
-    if config.bagging:
-        
-        algorithm.eval()
-        torch.set_grad_enabled(False)
-
-        #Evaluation
-        valid_labels = None
-        valid_preds = None
-        for split, dataset in datasets.items():
-
-            epoch_y_true = []
-            epoch_y_pred = []
-            epoch_metadata = []
-            iterator = dataset['loader']
-
-            epoch_prediction_probabilities = []
-            for batch in iterator:
-                batch_results = algorithm.evaluate(batch)
-                epoch_y_true.append(detach_and_clone(batch_results['y_true']))
-                y_pred = detach_and_clone(batch_results['y_pred'])
-                epoch_y_pred.append(y_pred)
-                epoch_metadata.append(detach_and_clone(batch_results['metadata']))
-
-            epoch_y_pred = collate_list(epoch_y_pred)
-            epoch_y_true = collate_list(epoch_y_true)
-            epoch_metadata = collate_list(epoch_metadata)
-            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
-
-            results, results_str = dataset['dataset'].eval(
-                epoch_y_pred,
-                epoch_y_true,
-                epoch_metadata)
-
     sys.stdout.close()
     logger.close()
 

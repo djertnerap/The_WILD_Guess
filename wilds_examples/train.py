@@ -155,6 +155,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
 
     valid_labels = None
     valid_preds = None
+    full_preds = {}
     for split, dataset in datasets.items():
         if (not config.evaluate_all_splits) and (split not in config.eval_splits):
             continue
@@ -180,7 +181,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_pred = collate_list(epoch_y_pred)
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
-        epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
+        if config.correct_label_shift:
+            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
 
         if config.correct_label_shift:
             # Set predictions to probabilities if any of them doesn't sum to 1.
@@ -211,6 +213,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
             epoch_y_true,
             epoch_metadata)
 
+        full_preds.update({split: [epoch_y_pred, epoch_y_true, epoch_metadata]})
+
         results['epoch'] = epoch
         dataset['eval_logger'].log(results)
         general_logger.write(f'Eval split {split} at epoch {epoch}:\n')
@@ -219,7 +223,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         # Skip saving train preds, since the train loader generally shuffles the data
         if split != 'train':
             save_pred_if_needed(epoch_y_pred, dataset, epoch, config, is_best, force_save=True)
-
+        
+    return full_preds 
 
 def infer_predictions(model, loader, config):
     """
