@@ -33,6 +33,7 @@ from torch.utils.data.sampler import WeightedRandomSampler, SubsetRandomSampler 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+
 def main():
     ''' Arg defaults are filled in according to examples/configs/ '''
     parser = argparse.ArgumentParser()
@@ -157,6 +158,15 @@ def main():
     parser.add_argument('--no_group_logging', type=parse_bool, const=True, nargs='?')
     parser.add_argument('--progress_bar', type=parse_bool, const=True, nargs='?', default=False)
     parser.add_argument('--resume', type=parse_bool, const=True, nargs='?', default=False, help='Whether to resume from the most recent saved model in the current log_dir.')
+    parser.add_argument('--correct_label_shift', type=str, const=supported.label_shift_estimation_data_sets[0],
+                        nargs='?', default=None, choices=supported.label_shift_estimation_data_sets,
+                        help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
+    parser.add_argument('--label_shift_estimation_grouping', type=str,
+                        const=supported.label_shift_estimation_groupings[0], nargs='+', default=None,
+                        choices=supported.label_shift_estimation_groupings)
+
+    # Weighted ERM
+    parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
 
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
@@ -328,7 +338,7 @@ def main():
     # Configure labeled torch datasets (WILDS dataset splits)
     datasets = defaultdict(dict)
     for split in full_dataset.split_dict.keys():
-        if split=='train':
+        if split == 'train':
             transform = train_transform
             verbose = True
         elif split == 'val':
@@ -346,8 +356,9 @@ def main():
         merged_df = pd.merge(datasets[split]['dataset'].dataset.metadata.iloc[datasets[split]['dataset'].indices], 
                             pd.DataFrame({"usage": datasets[split]['dataset'].dataset._split_array}), 
                             left_index=True, right_index=True)                  #add split information as a new column with metadata
-        usage_text = list(datasets[split]['dataset']._split_names.keys())
+        usage_text = list(datasets[split]['dataset']._split_names.values())
         merged_df['usage'] = merged_df['usage'].apply(lambda x:usage_text[int(x)] )     #convert split information id into text labels
+        merged_df['region'] = merged_df['region'].apply(lambda x:datasets[split]['dataset'].metadata_map['region'][x])
         merged_df.to_csv(config.log_dir + "/split_" + split + "_metadata.csv")             #export metadata per training set
 
         if split == 'train':
@@ -453,7 +464,10 @@ def main():
         if config.eval_epoch is None:
             eval_model_path = model_prefix + 'epoch:best_model.pth'
         else:
-            eval_model_path = model_prefix +  f'epoch:{config.eval_epoch}_model.pth'
+            eval_model_path = model_prefix + f'epoch:{config.eval_epoch}_model.pth'
+
+        eval_model_path = eval_model_path.replace(':', '_')
+
         best_epoch, best_val_metric = load(algorithm, eval_model_path, device=config.device)
         if config.eval_epoch is None:
             epoch = best_epoch
@@ -476,5 +490,6 @@ def main():
         datasets[split]['eval_logger'].close()
         datasets[split]['algo_logger'].close()
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     main()
