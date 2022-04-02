@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from algorithms.single_model_algorithm import SingleModelAlgorithm
 from models.initializer import initialize_model
 from utils import move_to
@@ -17,6 +18,16 @@ class ERM(SingleModelAlgorithm):
             n_train_steps=n_train_steps,
         )
         self.use_unlabeled_y = config.use_unlabeled_y # Expect x,y,m from unlabeled loaders and train on the unlabeled y
+        self.weighted = False
+        
+        if config.erm_weights:
+            print("Running Weighted ERM")
+            self.weighted = True
+            if self.device is None:
+                self.wt = torch.load(config.erm_weights, self.device)
+            else:
+                self.wt = torch.load(config.erm_weights)
+            self.wt = torch.from_numpy(self.wt)
 
     def process_batch(self, batch, unlabeled_batch=None):
         """
@@ -75,4 +86,12 @@ class ERM(SingleModelAlgorithm):
             unl_size = len(results['unlabeled_y_pred'])
             return (lab_size * labeled_loss + unl_size * unlabeled_loss) / (lab_size + unl_size)
         else:
-            return labeled_loss
+            if self.weighted:
+                wt_ndarray = move_to(np.maximum(self.wt, 0), self.device)
+                weightfunc = lambda y: wt_ndarray[y]
+                wt_batch = weightfunc(results['y_true']).reshape((-1,))
+                loss = self.loss.loss_fn(results['y_pred'], results['y_true'])
+                labeled_loss = loss * wt_batch
+                return labeled_loss.mean()
+            else:
+                return labeled_loss

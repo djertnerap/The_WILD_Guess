@@ -135,3 +135,9 @@ dmypy.json
 wilds_examples/data/
 wilds_examples/logs/
 wilds_examples/wandb/
+
+# Data
+data/
+
+# Results
+logs/

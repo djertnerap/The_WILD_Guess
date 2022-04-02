@@ -54,3 +54,9 @@ schedulers = ['linear_schedule_with_warmup', 'cosine_schedule_with_warmup', 'Red
 
 # See losses.py
 losses = ['cross_entropy', 'lm_cross_entropy', 'MSE', 'multitask_bce', 'fasterrcnn_criterion', 'cross_entropy_logits']
+
+# See train.py
+label_shift_estimation_data_sets = ['train', 'id_val', 'val']
+
+# See train.py
+label_shift_estimation_groupings = ['region', 'year']
