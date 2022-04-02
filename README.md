@@ -21,6 +21,7 @@ The `wilds/models/initializer` is the place where the model is created/initializ
 To run the Visual Transformer run:
 `python run_expt.py -d fmow --model vit --algorithm ERM  --root_dir ./data --loader_kwargs pin_memory=True --loader_kwargs "num_workers=26" --model_kwargs="model_size=B_16" --model_kwargs="pretrained=True" --device=0`
 
+
 ## Result sharing convention & analytics
 ### Logs & results sharing
 

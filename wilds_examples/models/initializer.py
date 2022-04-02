@@ -47,6 +47,7 @@ def initialize_model(config, d_out, is_featurizer=False):
     elif config.model == 'convnet':
         from models.basic_cnn import ConvNet
         model = ConvNet(num_classes=d_out)
+
     elif config.model == 'vit':
         from models.vit import ViT
         if featurize:
