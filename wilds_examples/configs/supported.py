@@ -41,16 +41,16 @@ algorithms = ['ERM', 'groupDRO', 'deepCORAL', 'IRM', 'DANN', 'AFN', 'FixMatch', 
 
 # See transforms.py
 transforms = ['image_base', 'image_resize', 'image_resize_and_center_crop']
-additional_transforms = ['randaugment', 'weak']
+additional_transforms = ['randaugment', 'weak','random_erasing']
 
 # See models/initializer.py
-models = ['resnet18_ms', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121','convnet','vit']
+models = ['resnet18_ms', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121','convnet','convnext_base','convnext_large','vit']
 
 # See optimizer.py
 optimizers = ['SGD', 'Adam', 'AdamW']
 
 # See scheduler.py
-schedulers = ['linear_schedule_with_warmup', 'cosine_schedule_with_warmup', 'ReduceLROnPlateau', 'StepLR', 'FixMatchLR', 'MultiStepLR']
+schedulers = ['linear_schedule_with_warmup', 'cosine_schedule_with_warmup', 'ReduceLROnPlateau', 'StepLR', 'FixMatchLR', 'MultiStepLR', 'cosine_decay']
 
 # See losses.py
 losses = ['cross_entropy', 'lm_cross_entropy', 'MSE', 'multitask_bce', 'fasterrcnn_criterion', 'cross_entropy_logits']

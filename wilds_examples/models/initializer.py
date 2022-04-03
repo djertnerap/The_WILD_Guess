@@ -30,7 +30,7 @@ def initialize_model(config, d_out, is_featurizer=False):
     # before recombining them at the end
     featurize = is_featurizer or config.load_featurizer_only
 
-    if config.model in ('resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121'):
+    if config.model in ('resnet18', 'resnet34', 'resnet50', 'resnet101', 'wideresnet50', 'densenet121', 'convnext_base', 'convnext_large'):
         if featurize:
             featurizer = initialize_torchvision_model(
                 name=config.model,
@@ -43,7 +43,7 @@ def initialize_model(config, d_out, is_featurizer=False):
                 name=config.model,
                 d_out=d_out,
                 **config.model_kwargs)
-    # This is convnet added by us !!
+    # This is convnet added by us
     elif config.model == 'convnet':
         from models.basic_cnn import ConvNet
         model = ConvNet(num_classes=d_out)
@@ -99,7 +99,7 @@ def initialize_torchvision_model(name, d_out, **kwargs):
     elif name == 'densenet121':
         constructor_name = name
         last_layer_name = 'classifier'
-    elif name in ('resnet18', 'resnet34', 'resnet50', 'resnet101'):
+    elif name in ('resnet18', 'resnet34', 'resnet50', 'resnet101','convnext_base', 'convnext_large' ):
         constructor_name = name
         last_layer_name = 'fc'
     else:
@@ -109,6 +109,8 @@ def initialize_torchvision_model(name, d_out, **kwargs):
     model = constructor(**kwargs)
     
     # adjust the last layer
+    if name in ('convnext_base', 'convnext_large'):
+        return model
     d_features = getattr(model, last_layer_name).in_features
     if d_out is None:  # want to initialize a featurizer model
         last_layer = Identity(d_features)
