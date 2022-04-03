@@ -131,6 +131,11 @@ dmypy.json
 # IDE
 .idea/
 
+# Wilds -- Custom Dirs
+wilds_examples/data/
+wilds_examples/logs/
+wilds_examples/wandb/
+
 # Data
 data/
 

@@ -1,0 +1,46 @@
+program: run_expt.py
+method: grid
+metric:
+  name: acc_worst_region
+  goal: maximize
+parameters:
+  dataset:
+    value: fmow
+  frac:
+    value: 0.001
+  model:
+    value: vit
+  algorithm:
+    values:
+      - ERM
+      - groupDRO
+      - deepCORAL
+      - IRM
+      - DANN
+      - AFN
+      - FixMatch
+      - PseudoLabel
+      - NoisyStudent
+  root_dir:
+    value: ./data
+  loader_kwargs:
+    value: "num_workers=26"
+  "model_kwargs=model_size":
+    values: 
+      - "B_16"
+      - "B_32"
+  "model_kwargs=pretrained":
+    values:
+      - False
+      - True
+  "wandb_kwargs=project":
+    value: "wilds-0.001"
+  "wandb_kwargs=entity":
+    value: "smuchi"
+early_terminate:
+  type: hyperband
+  min_iter: 10
+command:
+  - "/home/smuchi/miniconda3/envs/wilds2/bin/python"
+  - ${program}
+  - ${args}
