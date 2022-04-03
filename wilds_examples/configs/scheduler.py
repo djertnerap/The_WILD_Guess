@@ -25,4 +25,5 @@ scheduler_defaults = {
             'gamma': 0.1,
         }
     },
+    'cosine_decay': {},
 }

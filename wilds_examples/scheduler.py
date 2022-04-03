@@ -42,6 +42,10 @@ def initialize_scheduler(config, optimizer, n_train_steps):
         scheduler = MultiStepLR(optimizer, **config.scheduler_kwargs)
         step_every_batch = False
         use_metric = False
+    elif config.scheduler == 'cosine_decay':
+        scheduler = CosineAnnealingLR(optimizer,5)
+        step_every_batch = False
+        use_metric = False
     else:
         raise ValueError(f'Scheduler: {config.scheduler} not supported.')
 
