@@ -81,7 +81,8 @@ def initialize_transform(
         if normalize:
             transform_steps.append(default_normalization)
         transform = transforms.Compose(transform_steps)
-
+    if additional_transform_name == "random_erasing":
+        transform_steps.append(transforms.RandomErasing(0.25))   
     return transform
 
 
