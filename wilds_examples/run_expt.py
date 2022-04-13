@@ -161,8 +161,7 @@ def main():
     parser.add_argument('--correct_label_shift', type=str, const=supported.label_shift_estimation_data_sets[0],
                         nargs='?', default=None, choices=supported.label_shift_estimation_data_sets,
                         help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
-    parser.add_argument('--label_shift_estimation_grouping', type=str,
-                        const=supported.label_shift_estimation_groupings[0], nargs='+', default=None,
+    parser.add_argument('--label_shift_estimation_grouping', type=str, nargs='+', default=None,
                         choices=supported.label_shift_estimation_groupings)
 
     # Weighted ERM
