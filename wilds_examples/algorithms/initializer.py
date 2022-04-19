@@ -6,6 +6,7 @@ from algorithms.ERM import ERM
 from algorithms.AFN import AFN
 from algorithms.DANN import DANN
 from algorithms.groupDRO import GroupDRO
+from algorithms.groupDORO import GroupDORO
 from algorithms.deepCORAL import DeepCORAL
 from algorithms.IRM import IRM
 from algorithms.fixmatch import FixMatch
@@ -130,6 +131,17 @@ def initialize_algorithm(config, datasets, train_grouper, unlabeled_dataset=None
         train_g = train_grouper.metadata_to_group(train_dataset.metadata_array)
         is_group_in_train = get_counts(train_g, train_grouper.n_groups) > 0
         algorithm = DORO(
+            config=config,
+            d_out=d_out,
+            grouper=train_grouper,
+            loss=loss,
+            metric=metric,
+            n_train_steps=n_train_steps,
+            is_group_in_train=is_group_in_train)
+    elif config.algorithm == 'groupDORO':
+        train_g = train_grouper.metadata_to_group(train_dataset.metadata_array)
+        is_group_in_train = get_counts(train_g, train_grouper.n_groups) > 0
+        algorithm = GroupDORO(
             config=config,
             d_out=d_out,
             grouper=train_grouper,
