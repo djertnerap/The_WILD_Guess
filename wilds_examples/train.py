@@ -160,6 +160,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
     valid_labels = None
     valid_preds = None
     can_apply_label_shift_correction = False
+    full_preds = {}
+    
     for split, dataset in datasets.items():
         if (not config.evaluate_all_splits) and (split not in config.eval_splits):
             continue
@@ -186,6 +188,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
 
+        if config.correct_label_shift:
+            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
 
         if config.correct_label_shift is not None:
             epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
@@ -227,6 +231,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
             epoch_y_true,
             epoch_metadata)
 
+        full_preds.update({split: [epoch_y_pred, epoch_y_true, epoch_metadata]})
+
         results['epoch'] = epoch
         dataset['eval_logger'].log(results)
         general_logger.write(f'Eval split {split} at epoch {epoch}:\n')
@@ -236,7 +242,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         if split != 'train':
             save_pred_if_needed(epoch_y_pred, dataset, epoch, config, is_best, force_save=True)
             save_true_if_needed(epoch_y_true, dataset, epoch, config, is_best, force_save=True)
-
+    return full_preds 
 
 def correct_predictions(epoch_prediction_probabilities, valid_labels, valid_preds):
     evaluation_preds = epoch_prediction_probabilities.detach().cpu().numpy()
@@ -248,7 +254,6 @@ def correct_predictions(epoch_prediction_probabilities, valid_labels, valid_pred
     adapted_shifted_test_preds = imbalance_adapter_func(evaluation_preds)
     # Reformat results to wilds example format (torch tensor with scalar label)
     return torch.from_numpy(adapted_shifted_test_preds)
-
 
 def infer_predictions(model, loader, config):
     """
