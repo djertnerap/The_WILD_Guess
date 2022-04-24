@@ -68,7 +68,7 @@ In order to preserve the WILDS package code coherence, the Bagging method has be
 
 #### Training
 The training part of the Bagging process is fairly simple. The main script `run_expt.py` from WILDS package has been slightly tweaked to introduce a training loop which outputs a predictor for each of the defined Bagging seeds through the regular training process. This generic method allows flexibility as any kind of model can be trained with Bagging algo. \
-To enable the Baggin training, the `--bagging` parameter must be set to TRUE, the `--bagging_size` parameter must have the number of desired predictors and the `--bagging_seeds` must a a list of unique seed to train each individual predictor with a different subset of data. Note : the `--frac` parameter must be below 1 in order to have different subsets of data for each predictor ; otherwise the Bagging process will not have any impact. \
+To enable the Bagging training, the `--bagging` parameter must be set to TRUE, the `--bagging_size` parameter must have the number of desired predictors and the `--bagging_seeds` must a a list of unique seeds to train each individual predictor with a different subset of data. Note : the `--frac` parameter must be below 1 in order to have different subsets of data for each predictor ; otherwise the Bagging process will not have any impact. \
 \
 Here is a command line example to run the training part of Bagging: \
 `python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data --frac 0.5 --batch_size 30 \`\
@@ -76,7 +76,7 @@ Here is a command line example to run the training part of Bagging: \
 `--bagging --bagging_seeds 0 1 2 3 4 5 6 7 --bagging_size 8 --save_step 1`
 
 #### Evaluation
-The Bagging evaluation is performed when the `--bagging` parameter and `--eval_only` are TRUE. The `--eval_epoch` parameter can select a specific epoch at which predictors were trained to make the evaluation. If omitted, the last epoch is used by default. Furthermore, the training log folder must be inputed in `--log_dir` parameter. During the Bagging evaluation process, the predictions from each predictor are aggregated to select the most occuring category as the final prediction.\
+The Bagging evaluation is performed when the `--bagging` and `--eval_only` parameters are TRUE. The `--eval_epoch` parameter can select a specific epoch at which predictors were trained to make the evaluation. If omitted, the last epoch is used by default. Furthermore, the training log folder must be inputed in `--log_dir` parameter. During the Bagging evaluation process, the predictions from each predictor are aggregated to select the most occuring category as the final prediction.\
 Here is an example of a command line for Bagging evaluation:\
 `python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data \`\
 `--log_dir "./logs" \`\
