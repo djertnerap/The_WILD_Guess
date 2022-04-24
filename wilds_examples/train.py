@@ -231,7 +231,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
             epoch_y_true,
             epoch_metadata)
 
-        full_preds.update({split: [epoch_y_pred, epoch_y_true, epoch_metadata]})
+        full_preds.update({split: [epoch_y_pred, epoch_y_true, epoch_metadata]})    #exporting predictions for bagging voting
 
         results['epoch'] = epoch
         dataset['eval_logger'].log(results)

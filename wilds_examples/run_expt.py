@@ -203,8 +203,6 @@ def main():
     main_log_dir = config.log_dir
 
     for bag_seed in config.bagging_seeds:           #Bagging loop
-        print('baggin',  config.bagging)
-        print('eval',  config.eval_only)
         if config.bagging & (not config.eval_only):          #Bagging adaptation if used
             config.seed = bag_seed
             config.log_dir = main_log_dir + "/bag" + str(bag_seed) + "/"
@@ -503,22 +501,21 @@ def main():
                 config=config,
                 is_best=is_best)
         else:           #Bagging evaluation special case
-            #assert config.frac == 1         #always use the full dataset to evaluate the joint Bagging model
             print('Evaluating Bagging')
             bag_pred = {}
             split_pred = {}
             split_acc = {}
             result_line = pd.DataFrame()
-            if config.eval_epoch is None:
+            if config.eval_epoch is None:       #by default use the last epoch model for each predictor
                 model_name = 'last_model.pth'
-            else:
+            else:           #use a specific epoch for each predictor
                 model_name = f'{config.eval_epoch}_model.pth'
             # Get Bagged models
             directories = next(os.walk(config.log_dir))[1]
             print(directories)
             for folder in directories: 
                 print(folder)
-                if folder.startswith('bag'):
+                if folder.startswith('bag'):    #getting bagging models from each directory
                     bag_pred.update({folder:{}})
                     file_names = os.listdir(config.log_dir + "/" + folder)
                     for file in file_names:
@@ -526,7 +523,6 @@ def main():
                             print(file)
                             bag_seed = re.sub('bag','',folder)
                             eval_model_path = config.log_dir + "/" + folder + "/" + file
-                            #bag_models.update({folder: eval_model_path})
                             load(algorithm, eval_model_path, device=config.device)
                             config.seed = bag_seed          #setting seed parameter for log file names
                             full_preds = evaluate(
@@ -535,21 +531,17 @@ def main():
                                             epoch='Last',
                                             general_logger=logger,
                                             config=config,
-                                            is_best=False)
-                            for split, (epoch_y_pred, epoch_y_true, epoch_metadata) in full_preds.items():
+                                            is_best=False)              #get predictions
+                            for split, (epoch_y_pred, epoch_y_true, epoch_metadata) in full_preds.items():   #joining metadata to predictions
                                 df = pd.DataFrame({'pred cat': epoch_y_pred, 'true cat': epoch_y_true}) 
-                                df[['region','year','true true cat','split']] = epoch_metadata.detach().numpy()      #.str.split(',', expand=True).astype(int)
+                                df[['region','year','true true cat','split']] = epoch_metadata.detach().numpy()
                                 bag_pred[folder].update({split: df})
                                 split_pred.update({split:pd.DataFrame(0,index=[i for i in range(0,len(epoch_y_pred))], columns=[i for i in range(0,62)])})
                                 bag_pred[folder][split].to_csv(config.log_dir + "/" + folder +'_' + split +'.csv', index=False, header=bag_pred[folder][split].columns)
-                                #df = pd.DataFrame(epoch_y_true.numpy())
-                                #df.to_csv(config.log_dir + "/" + folder +'_' + split +'_full_y_true.csv', index=False, header=False)
-                                #df = pd.DataFrame(epoch_metadata.numpy())
-                                #df.to_csv(config.log_dir + "/" + folder +'_' + split +'_full_y_metadata.csv', index=False, header=False)
-            for bag, df_dict in bag_pred.items():
+            for bag, df_dict in bag_pred.items():       #aggregate predictions for voting
                 for split, df in df_dict.items():
                     split_pred[split] += pd.get_dummies(list(df['pred cat'])+[i for i in range(0,62)]).iloc[:-62]
-            for split, df in split_pred.items():
+            for split, df in split_pred.items():    #compile votes and compare with true cats to generate accuracy KPIs
                 split_acc.update({split: pd.concat([bag_pred[next(iter(bag_pred))][split]['region'],(df.idxmax(axis=1) == bag_pred[next(iter(bag_pred))][split]['true cat']).rename('correct')],axis=1)})
                 split_acc[split].to_csv(config.log_dir + "/" + split +'_acc.csv', index=False, header=split_acc[split].columns)
                 pivott = split_acc[split].drop(split_acc[split].index[split_acc[split]['region'] == 5]).pivot_table(index=['region'],columns=['correct'],aggfunc=len)  #dropping 'Other' region for worst region analysis     
