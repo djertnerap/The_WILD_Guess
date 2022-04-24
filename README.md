@@ -57,10 +57,10 @@ Get online to view results... (procedure TBD)
 ### Bootstrapping for evenly distributed splits
 
 The Bootstrap process is part of the WILDS package. The following parameters can be used to configure how Bootstrap is performed:
-`--train_load` -> Select the loader to be either per group or standard. 
-`--groupby_fields region` -> Select the grouping parameters for Bootstrap sampling & results reporting.
-`--uniform_over_groups` -> Boolean to activate Bootstrap sampling uniformly over groups.
-`-n_groups_per_batch` -> the number of groups per batch. Need to be a multiple of the batch_size.
+`--train_load` -> Select the loader to be either per group or standard. \\
+`--groupby_fields region` -> Select the grouping parameters for Bootstrap sampling & results reporting. \\
+`--uniform_over_groups` -> Boolean to activate Bootstrap sampling uniformly over groups. \\
+`-n_groups_per_batch` -> the number of groups per batch. Need to be a multiple of the batch_size. \\
 
 ### Bagging
 
