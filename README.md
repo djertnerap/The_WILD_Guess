@@ -1,5 +1,7 @@
 # The_WILD_Guess
 
+The wilds_examples folder was taken directly from https://github.com/p-lambda/wilds/tree/main/examples. 
+We implemented our methods on top of what was already present in order to accelerate development iteration. 
 
 ## Interesting informations
 
@@ -89,11 +91,11 @@ Here is an example of a command line for Bagging evaluation:\
 
 ### Expectation Minimization + Bias Corrected Temperature Scaling
 
-Since this method requires probability distributions as predictions, an additional softmax is applied if any prediction doesn't sum to 1. 
+Since this method requires the predictions to be probability distributions, an additional softmax is applied if any prediction doesn't sum to 1. 
 To activate both while training & evaluating, add the argument `--correct_label_shift`. 
-You can also specify the split to use for label distribution evaluation out of `train`, `id_val` & `val`. 
+You can also specify the split to use for label distribution estimation out of `train`, `id_val` & `val`. 
 
-Example to evaluate best `convnet` model from `logs` folder:
+Example command to evaluate best `convnet` model from `logs` folder:
 ```commandline
 python wilds_examples/run_expt.py -d fmow --algorithm ERM --root_dir ./data --download --model convnet
 --frac 0.01 --loader_kwargs "num_workers=8" --loader_kwargs pin_memory=True 
@@ -102,7 +104,7 @@ python wilds_examples/run_expt.py -d fmow --algorithm ERM --root_dir ./data --do
 
 #### Grouping
 
-In order to estimate label shift per grouping in the test sets, use the argument:
+In order to estimate label shift per grouping in the test sets, add the argument:
 
 ```commandline
 --label_shift_estimation_grouping region year

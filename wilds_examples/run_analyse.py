@@ -149,9 +149,11 @@ def main():
     str(wrst_rg_id_test_acc) + '\t' + \
     str(wrst_rg_ood_test_acc)
 
+    print(kpi_extract.replace('.', ','))
     f = open(args.log_dir + "/kpi_extract.txt","w+")
     f.write(kpi_extract)
     f.close()
 
-if __name__=='__main__':
-    main()   
+
+if __name__ == '__main__':
+    main()
