@@ -7,7 +7,8 @@ import math
 from wilds.common.grouper import CombinatorialGrouper
 
 from configs.supported import process_outputs_functions, process_pseudolabels_functions
-from utils import save_model, save_pred, get_pred_prefix, get_model_prefix, collate_list, detach_and_clone, InfiniteDataIterator
+from utils import save_model, save_pred, get_pred_prefix, get_model_prefix, collate_list, detach_and_clone, \
+    InfiniteDataIterator
 
 from abstention.calibration import TempScaling
 from abstention.label_shift import EMImbalanceAdapter
@@ -41,8 +42,8 @@ def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabele
     batches = dataset['loader']
     if config.progress_bar:
         batches = tqdm(batches)
-    last_batch_idx = len(batches)-1
-    
+    last_batch_idx = len(batches) - 1
+
     if unlabeled_dataset:
         unlabeled_data_iterator = InfiniteDataIterator(unlabeled_dataset['loader'])
 
@@ -53,9 +54,10 @@ def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabele
         if train:
             if unlabeled_dataset:
                 unlabeled_batch = next(unlabeled_data_iterator)
-                batch_results = algorithm.update(labeled_batch, unlabeled_batch, is_epoch_end=(batch_idx==last_batch_idx))
+                batch_results = algorithm.update(labeled_batch, unlabeled_batch,
+                                                 is_epoch_end=(batch_idx == last_batch_idx))
             else:
-                batch_results = algorithm.update(labeled_batch, is_epoch_end=(batch_idx==last_batch_idx))
+                batch_results = algorithm.update(labeled_batch, is_epoch_end=(batch_idx == last_batch_idx))
         else:
             batch_results = algorithm.evaluate(labeled_batch)
 
@@ -70,12 +72,12 @@ def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabele
         epoch_y_pred.append(y_pred)
         epoch_metadata.append(detach_and_clone(batch_results['metadata']))
 
-        if train: 
+        if train:
             effective_batch_idx = (batch_idx + 1) / config.gradient_accumulation_steps
-        else: 
+        else:
             effective_batch_idx = batch_idx + 1
 
-        if train and effective_batch_idx % config.log_every==0:
+        if train and effective_batch_idx % config.log_every == 0:
             log_results(algorithm, dataset, general_logger, epoch, math.ceil(effective_batch_idx))
 
         batch_idx += 1
@@ -89,7 +91,7 @@ def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabele
         epoch_y_true,
         epoch_metadata)
 
-    if config.scheduler_metric_split==dataset['split']:
+    if config.scheduler_metric_split == dataset['split']:
         algorithm.step_schedulers(
             is_epoch=True,
             metrics=results,
@@ -120,7 +122,8 @@ def train(algorithm, datasets, general_logger, config, epoch_offset, best_val_me
         general_logger.write('\nEpoch [%d]:\n' % epoch)
 
         # First run training
-        run_epoch(algorithm, datasets['train'], general_logger, epoch, config, train=True, unlabeled_dataset=unlabeled_dataset)
+        run_epoch(algorithm, datasets['train'], general_logger, epoch, config, train=True,
+                  unlabeled_dataset=unlabeled_dataset)
 
         # Then run val
         val_results, y_pred = run_epoch(algorithm, datasets['val'], general_logger, epoch, config, train=False)
@@ -143,7 +146,7 @@ def train(algorithm, datasets, general_logger, config, epoch_offset, best_val_me
 
         # Then run everything else
         if config.evaluate_all_splits:
-            additional_splits = [split for split in datasets.keys() if split not in ['train','val']]
+            additional_splits = [split for split in datasets.keys() if split not in ['train', 'val']]
         else:
             additional_splits = config.eval_splits
         for split in additional_splits:
@@ -161,7 +164,7 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
     valid_preds = None
     can_apply_label_shift_correction = False
     full_preds = {}
-    
+
     for split, dataset in datasets.items():
         if (not config.evaluate_all_splits) and (split not in config.eval_splits):
             continue
@@ -188,9 +191,6 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         epoch_y_true = collate_list(epoch_y_true)
         epoch_metadata = collate_list(epoch_metadata)
 
-        if config.correct_label_shift:
-            epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
-
         if config.correct_label_shift is not None:
             epoch_prediction_probabilities = collate_list(epoch_prediction_probabilities)
             # Set predictions to probabilities if any of them doesn't sum to 1.
@@ -199,7 +199,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
                 epoch_prediction_probabilities = F.softmax(epoch_prediction_probabilities, dim=1)
 
             if config.correct_label_shift == split:
-                valid_labels = F.one_hot(epoch_y_true, num_classes=epoch_prediction_probabilities.shape[1]).detach().cpu().numpy()
+                valid_labels = F.one_hot(epoch_y_true,
+                                         num_classes=epoch_prediction_probabilities.shape[1]).detach().cpu().numpy()
                 valid_preds = epoch_prediction_probabilities.detach().cpu().numpy()
                 can_apply_label_shift_correction = True
             elif can_apply_label_shift_correction:
@@ -231,7 +232,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
             epoch_y_true,
             epoch_metadata)
 
-        full_preds.update({split: [epoch_y_pred, epoch_y_true, epoch_metadata]})    #exporting predictions for bagging voting
+        full_preds.update(
+            {split: [epoch_y_pred, epoch_y_true, epoch_metadata]})  # exporting predictions for bagging voting
 
         results['epoch'] = epoch
         dataset['eval_logger'].log(results)
@@ -242,7 +244,8 @@ def evaluate(algorithm, datasets, epoch, general_logger, config, is_best):
         if split != 'train':
             save_pred_if_needed(epoch_y_pred, dataset, epoch, config, is_best, force_save=True)
             save_true_if_needed(epoch_y_true, dataset, epoch, config, is_best, force_save=True)
-    return full_preds 
+    return full_preds
+
 
 def correct_predictions(epoch_prediction_probabilities, valid_labels, valid_preds):
     evaluation_preds = epoch_prediction_probabilities.detach().cpu().numpy()
@@ -255,6 +258,7 @@ def correct_predictions(epoch_prediction_probabilities, valid_labels, valid_pred
     # Reformat results to wilds example format (torch tensor with scalar label)
     return torch.from_numpy(adapted_shifted_test_preds)
 
+
 def infer_predictions(model, loader, config):
     """
     Simple inference loop that performs inference using a model (not algorithm) and returns model outputs.
@@ -266,7 +270,7 @@ def infer_predictions(model, loader, config):
     for batch in iterator:
         x = batch[0]
         x = x.to(config.device)
-        with torch.no_grad(): 
+        with torch.no_grad():
             output = model(x)
             if not config.soft_pseudolabels and config.process_pseudolabels_function is not None:
                 _, output, _, _ = process_pseudolabels_functions[config.process_pseudolabels_function](
@@ -281,6 +285,7 @@ def infer_predictions(model, loader, config):
             y_pred.append(detach_and_clone(output))
 
     return torch.cat(y_pred, 0) if torch.is_tensor(y_pred[0]) else y_pred
+
 
 def log_results(algorithm, dataset, general_logger, epoch, effective_batch_idx):
     if algorithm.has_log:
@@ -302,6 +307,7 @@ def save_pred_if_needed(y_pred, dataset, epoch, config, is_best, force_save=Fals
             save_pred(y_pred, prefix + f'epoch:last_pred')
         if config.save_best and is_best:
             save_pred(y_pred, prefix + f'epoch:best_pred')
+
 
 def save_true_if_needed(y_true, dataset, epoch, config, is_best, force_save=False):
     if config.save_pred:
