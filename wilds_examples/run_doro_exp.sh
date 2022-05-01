@@ -1,12 +1,13 @@
 #!/bin/bash
 
 BASE_DIR="/home/wcallag_gmail_com"
-FRAC=1
-EPOCHS=30
-ALPHA=0.25
-EPS=0.005
-PROJECT="doro"
+FRAC=1 # Fraction of data to use (between 0 and 1)
+EPOCHS=30 # Number of epochs to run
+ALPHA=0.25 # Alpha parameter for DORO
+EPS=0.005 # Epsilon parameter for DORO
+PROJECT="doro" # Project name (used to track in wandb)
 
+# Used to create a directory for logging exp results
 BASE_NAME="erm_frac_${FRAC}"
 ALG="_${PROJECT}_${EPOCHS}_epoch_alpha${ALPHA}_eps${EPS}"
 SUFFIX=""
@@ -31,7 +32,7 @@ then
         --doro_alg "cvar_doro" \
         --alpha=${ALPHA}\
         --eps=${EPS} \
-        --root_dir /home/wcallag_gmail_com/Data \
+        --root_dir "${BASE_DIR}/Data" \
         --loader_kwargs "num_workers=8" \
         --loader_kwargs pin_memory=True \
         --frac=${FRAC} \
