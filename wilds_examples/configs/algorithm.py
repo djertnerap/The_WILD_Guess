@@ -78,5 +78,17 @@ algorithm_defaults = {
         'scheduler': 'FixMatchLR',
         'randaugment_n': 2,
         'additional_train_transform': 'randaugment',     # Apply strong augmentation to labeled & unlabeled examples
+    },
+    'doro': {
+        'train_loader': 'standard',
+        'uniform_over_groups': False,
+        'eval_loader': 'standard',
+    },
+    'groupDORO': {
+        'train_loader': 'standard',
+        'uniform_over_groups': True,
+        'distinct_groups': True,
+        'eval_loader': 'standard',
+        'group_doro_step_size': 0.01,
     }
 }
