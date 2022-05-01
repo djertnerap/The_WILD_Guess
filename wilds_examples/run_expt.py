@@ -1,5 +1,6 @@
 import os
 import time
+import re
 import argparse
 import pandas as pd
 import torch
@@ -161,16 +162,16 @@ def main():
     parser.add_argument('--correct_label_shift', type=str, const=supported.label_shift_estimation_data_sets[0],
                         nargs='?', default=None, choices=supported.label_shift_estimation_data_sets,
                         help='Whether to also print results with label shift correction through Expectation Maximization with Bias-Corrected Temperature Scaling')
+    parser.add_argument('--label_shift_estimation_grouping', type=str, nargs='+', default=None,
+                        choices=supported.label_shift_estimation_groupings)
 
     # Weighted ERM
     parser.add_argument('--erm_weights', default=None, type=str, help='Weights to use for BBSE')
-    parser.add_argument('--region', default='all', type=str, help='Load only particular region.')
-
-    # DORO
-    parser.add_argument('--doro_alg', default=None, type=str, help='DORO algorithm to use')
-    parser.add_argument('--alpha', default=None, type=float, help='DORO Alpha.')
-    parser.add_argument('--eps', default=None, type=float, help='DORO EPS.')
-
+    
+    #Bagging
+    parser.add_argument('--bagging', type=parse_bool, const=True, nargs='?', help='If true, use the Bagging method to train multiple predictors.', default=False)
+    parser.add_argument('--bagging_size', default=1, type=int, help='Number of predictors for the Bagging method.')
+    parser.add_argument('--bagging_seeds', type=int, nargs='+', default=[0])
 
     # Weights & Biases
     parser.add_argument('--use_wandb', type=parse_bool, const=True, nargs='?', default=False)
@@ -191,44 +192,46 @@ def main():
         config.use_data_parallel = len(config.device) > 1
         device_str = ",".join(map(str, config.device))
         os.environ["CUDA_VISIBLE_DEVICES"] = device_str
-        config.device = torch.device("cuda")
+        config.device = torch.device(f"cuda:{config.device[0]}")
     else:
         config.use_data_parallel = False
         config.device = torch.device("cpu")
 
-    # Initialize logs
-    if os.path.exists(config.log_dir) and config.resume:
-        resume=True
-        mode='a'
-    elif os.path.exists(config.log_dir) and config.eval_only:
-        resume=False
-        mode='a'
-    else:
-        resume=False
-        mode='w'
+    assert config.bagging_size == len(config.bagging_seeds)             #--bagging_size needs to be the same as the number of seeds.
+    assert ((config.bagging == True) & (len(config.bagging_seeds)>1)) | (len(config.bagging_seeds)==1)  #--bagging needs to be set to True to be used.
 
-    if not os.path.exists(config.log_dir):
-        os.makedirs(config.log_dir)
-    logger = Logger(os.path.join(config.log_dir, 'log.txt'), mode)
+    main_log_dir = config.log_dir
 
-    # Record config
-    log_config(config, logger)
+    for bag_seed in config.bagging_seeds:           #Bagging loop
+        if config.bagging & (not config.eval_only):          #Bagging adaptation if used
+            config.seed = bag_seed
+            config.log_dir = main_log_dir + "/bag" + str(bag_seed) + "/"
 
-    # Set random seed
-    set_seed(config.seed)
+        # Initialize logs
+        if os.path.exists(config.log_dir) and config.resume:
+            resume=True
+            mode='a'
+        elif os.path.exists(config.log_dir) and config.eval_only:
+            resume=False
+            mode='a'
+        else:
+            resume=False
+            mode='w'
 
-    # Data
-    if config.region != 'all':
-        print(f"Loading only data from {config.region}")
-        from datasets.fmow_dataset import FMoWDataset
-        full_dataset = FMoWDataset(
-            root_dir=config.root_dir,
-            download=config.download,
-            split_scheme=config.split_scheme,
-            region=config.region,
-            **config.dataset_kwargs
-        )
-    else:
+        if not os.path.exists(config.log_dir):
+            os.makedirs(config.log_dir)
+        logger = Logger(os.path.join(config.log_dir, 'log.txt'), mode)
+        
+        if config.bagging:          #Bagging iteration in log
+            logger.write(f'Bagging with seed {bag_seed}.')
+
+        # Record config
+        log_config(config, logger)
+
+        # Set random seed
+        set_seed(config.seed)
+
+        # Data
         full_dataset = wilds.get_dataset(
             dataset=config.dataset,
             version=config.version,
@@ -237,275 +240,324 @@ def main():
             split_scheme=config.split_scheme,
             **config.dataset_kwargs)
 
-    # Transforms & data augmentations for labeled dataset
-    # To modify data augmentation, modify the following code block.
-    # If you want to use transforms that modify both `x` and `y`,
-    # set `do_transform_y` to True when initializing the `WILDSSubset` below.
-    train_transform = initialize_transform(
-        transform_name=config.transform,
-        config=config,
-        dataset=full_dataset,
-        additional_transform_name=config.additional_train_transform,
-        is_training=True)
-    eval_transform = initialize_transform(
-        transform_name=config.transform,
-        config=config,
-        dataset=full_dataset,
-        is_training=False)
+        # Transforms & data augmentations for labeled dataset
+        # To modify data augmentation, modify the following code block.
+        # If you want to use transforms that modify both `x` and `y`,
+        # set `do_transform_y` to True when initializing the `WILDSSubset` below.
+        train_transform = initialize_transform(
+            transform_name=config.transform,
+            config=config,
+            dataset=full_dataset,
+            additional_transform_name=config.additional_train_transform,
+            is_training=True)
+        eval_transform = initialize_transform(
+            transform_name=config.transform,
+            config=config,
+            dataset=full_dataset,
+            is_training=False)
 
-    # Configure unlabeled datasets
-    unlabeled_dataset = None
-    if config.unlabeled_split is not None:
-        split = config.unlabeled_split
-        full_unlabeled_dataset = wilds.get_dataset(
-            dataset=config.dataset,
-            version=config.unlabeled_version,
-            root_dir=config.root_dir,
-            download=config.download,
-            unlabeled=True,
-            **config.dataset_kwargs
-        )
-        train_grouper = CombinatorialGrouper(
-            dataset=[full_dataset, full_unlabeled_dataset],
-            groupby_fields=config.groupby_fields
-        )
-
-        # Transforms & data augmentations for unlabeled dataset
-        if config.algorithm == "FixMatch":
-            # For FixMatch, we need our loader to return batches in the form ((x_weak, x_strong), m)
-            # We do this by initializing a special transform function
-            unlabeled_train_transform = initialize_transform(
-                config.transform, config, full_dataset, is_training=True, additional_transform_name="fixmatch"
+        # Configure unlabeled datasets
+        unlabeled_dataset = None
+        if config.unlabeled_split is not None:
+            split = config.unlabeled_split
+            full_unlabeled_dataset = wilds.get_dataset(
+                dataset=config.dataset,
+                version=config.unlabeled_version,
+                root_dir=config.root_dir,
+                download=config.download,
+                unlabeled=True,
+                **config.dataset_kwargs
             )
-        else:
-            # Otherwise, use the same data augmentations as the labeled data.
-            unlabeled_train_transform = train_transform
+            train_grouper = CombinatorialGrouper(
+                dataset=[full_dataset, full_unlabeled_dataset],
+                groupby_fields=config.groupby_fields
+            )
 
-        if config.algorithm == "NoisyStudent":
-            # For Noisy Student, we need to first generate pseudolabels using the teacher
-            # and then prep the unlabeled dataset to return these pseudolabels in __getitem__
-            print("Inferring teacher pseudolabels for Noisy Student")
-            assert config.teacher_model_path is not None
-            if not config.teacher_model_path.endswith(".pth"):
-                # Use the best model
-                config.teacher_model_path = os.path.join(
-                    config.teacher_model_path,  f"{config.dataset}_seed:{config.seed}_epoch:best_model.pth"
+            # Transforms & data augmentations for unlabeled dataset
+            if config.algorithm == "FixMatch":
+                # For FixMatch, we need our loader to return batches in the form ((x_weak, x_strong), m)
+                # We do this by initializing a special transform function
+                unlabeled_train_transform = initialize_transform(
+                    config.transform, config, full_dataset, is_training=True, additional_transform_name="fixmatch"
+                )
+            else:
+                # Otherwise, use the same data augmentations as the labeled data.
+                unlabeled_train_transform = train_transform
+
+            if config.algorithm == "NoisyStudent":
+                # For Noisy Student, we need to first generate pseudolabels using the teacher
+                # and then prep the unlabeled dataset to return these pseudolabels in __getitem__
+                print("Inferring teacher pseudolabels for Noisy Student")
+                assert config.teacher_model_path is not None
+                if not config.teacher_model_path.endswith(".pth"):
+                    # Use the best model
+                    config.teacher_model_path = os.path.join(
+                        config.teacher_model_path,  f"{config.dataset}_seed:{config.seed}_epoch:best_model.pth"
+                    )
+
+                d_out = infer_d_out(full_dataset, config)
+                teacher_model = initialize_model(config, d_out).to(config.device)
+                load(teacher_model, config.teacher_model_path, device=config.device)
+                # Infer teacher outputs on weakly augmented unlabeled examples in sequential order
+                weak_transform = initialize_transform(
+                    transform_name=config.transform,
+                    config=config,
+                    dataset=full_dataset,
+                    is_training=True,
+                    additional_transform_name="weak"
+                )
+                unlabeled_split_dataset = full_unlabeled_dataset.get_subset(split, transform=weak_transform, frac=config.frac)
+                sequential_loader = get_eval_loader(
+                    loader=config.eval_loader,
+                    dataset=unlabeled_split_dataset,
+                    grouper=train_grouper,
+                    batch_size=config.unlabeled_batch_size,
+                    **config.unlabeled_loader_kwargs
+                )
+                teacher_outputs = infer_predictions(teacher_model, sequential_loader, config)
+                teacher_outputs = move_to(teacher_outputs, torch.device("cpu"))
+                unlabeled_split_dataset = WILDSPseudolabeledSubset(
+                    reference_subset=unlabeled_split_dataset,
+                    pseudolabels=teacher_outputs,
+                    transform=unlabeled_train_transform,
+                    collate=full_dataset.collate,
+                )
+                teacher_model = teacher_model.to(torch.device("cpu"))
+                del teacher_model
+            else:
+                unlabeled_split_dataset = full_unlabeled_dataset.get_subset(
+                    split, 
+                    transform=unlabeled_train_transform, 
+                    frac=config.frac, 
+                    load_y=config.use_unlabeled_y
                 )
 
-            d_out = infer_d_out(full_dataset, config)
-            teacher_model = initialize_model(config, d_out).to(config.device)
-            load(teacher_model, config.teacher_model_path, device=config.device)
-            # Infer teacher outputs on weakly augmented unlabeled examples in sequential order
-            weak_transform = initialize_transform(
-                transform_name=config.transform,
-                config=config,
-                dataset=full_dataset,
-                is_training=True,
-                additional_transform_name="weak"
-            )
-            unlabeled_split_dataset = full_unlabeled_dataset.get_subset(split, transform=weak_transform, frac=config.frac)
-            sequential_loader = get_eval_loader(
-                loader=config.eval_loader,
-                dataset=unlabeled_split_dataset,
-                grouper=train_grouper,
-                batch_size=config.unlabeled_batch_size,
-                **config.unlabeled_loader_kwargs
-            )
-            teacher_outputs = infer_predictions(teacher_model, sequential_loader, config)
-            teacher_outputs = move_to(teacher_outputs, torch.device("cpu"))
-            unlabeled_split_dataset = WILDSPseudolabeledSubset(
-                reference_subset=unlabeled_split_dataset,
-                pseudolabels=teacher_outputs,
-                transform=unlabeled_train_transform,
-                collate=full_dataset.collate,
-            )
-            teacher_model = teacher_model.to(torch.device("cpu"))
-            del teacher_model
-        else:
-            unlabeled_split_dataset = full_unlabeled_dataset.get_subset(
-                split, 
-                transform=unlabeled_train_transform, 
-                frac=config.frac, 
-                load_y=config.use_unlabeled_y
-            )
-
-        unlabeled_dataset = {
-            'split': split,
-            'name': full_unlabeled_dataset.split_names[split],
-            'dataset': unlabeled_split_dataset
-        }
-        unlabeled_dataset['loader'] = get_train_loader(
-            loader=config.train_loader,
-            dataset=unlabeled_dataset['dataset'],
-            batch_size=config.unlabeled_batch_size,
-            uniform_over_groups=config.uniform_over_groups,
-            grouper=train_grouper,
-            distinct_groups=config.distinct_groups,
-            n_groups_per_batch=config.unlabeled_n_groups_per_batch,
-            **config.unlabeled_loader_kwargs
-        )
-    else:
-        train_grouper = CombinatorialGrouper(
-            dataset=full_dataset,
-            groupby_fields=config.groupby_fields
-        )
-
-    # Configure labeled torch datasets (WILDS dataset splits)
-    datasets = defaultdict(dict)
-    for split in full_dataset.split_dict.keys():
-        if split == 'train':
-            transform = train_transform
-            verbose = True
-        elif split == 'val':
-            transform = eval_transform
-            verbose = True
-        else:
-            transform = eval_transform
-            verbose = False
-        # Get subset
-        datasets[split]['dataset'] = full_dataset.get_subset(
-            split,
-            frac=config.frac,
-            transform=transform)
-
-        merged_df = pd.merge(datasets[split]['dataset'].dataset.metadata.iloc[datasets[split]['dataset'].indices], 
-                            pd.DataFrame({"usage": datasets[split]['dataset'].dataset._split_array}), 
-                            left_index=True, right_index=True)                  #add split information as a new column with metadata
-        usage_text = list(datasets[split]['dataset']._split_names.values())
-        merged_df['usage'] = merged_df['usage'].apply(lambda x:usage_text[int(x)] )     #convert split information id into text labels
-        merged_df['region'] = merged_df['region'].apply(lambda x:datasets[split]['dataset'].metadata_map['region'][x])
-        merged_df.to_csv(config.log_dir + "/split_" + split + "_metadata.csv")             #export metadata per training set
-
-        if split == 'train':
-            datasets[split]['loader'] = get_train_loader(
+            unlabeled_dataset = {
+                'split': split,
+                'name': full_unlabeled_dataset.split_names[split],
+                'dataset': unlabeled_split_dataset
+            }
+            unlabeled_dataset['loader'] = get_train_loader(
                 loader=config.train_loader,
-                dataset=datasets[split]['dataset'],
-                batch_size=config.batch_size,
+                dataset=unlabeled_dataset['dataset'],
+                batch_size=config.unlabeled_batch_size,
                 uniform_over_groups=config.uniform_over_groups,
                 grouper=train_grouper,
                 distinct_groups=config.distinct_groups,
-                n_groups_per_batch=config.n_groups_per_batch,
-                **config.loader_kwargs)
+                n_groups_per_batch=config.unlabeled_n_groups_per_batch,
+                **config.unlabeled_loader_kwargs
+            )
         else:
-            datasets[split]['loader'] = get_eval_loader(
-                loader=config.eval_loader,
-                dataset=datasets[split]['dataset'],
-                grouper=train_grouper,
-                batch_size=config.batch_size,
-                **config.loader_kwargs)
-
-        # Set fields
-        datasets[split]['split'] = split
-        datasets[split]['name'] = full_dataset.split_names[split]
-        datasets[split]['verbose'] = verbose
-
-        # Loggers
-        datasets[split]['eval_logger'] = BatchLogger(
-            os.path.join(config.log_dir, f'{split}_eval.csv'), mode=mode, use_wandb=config.use_wandb
-        )
-        datasets[split]['algo_logger'] = BatchLogger(
-            os.path.join(config.log_dir, f'{split}_algo.csv'), mode=mode, use_wandb=config.use_wandb
-        )
-
-    if config.use_wandb:
-        initialize_wandb(config)
-
-    # Logging dataset info
-    # Show class breakdown if feasible
-    if config.no_group_logging and full_dataset.is_classification and full_dataset.y_size==1 and full_dataset.n_classes <= 10:
-        log_grouper = CombinatorialGrouper(
-            dataset=full_dataset,
-            groupby_fields=['y'])
-    elif config.no_group_logging:
-        log_grouper = None
-    else:
-        log_grouper = train_grouper
-    log_group_data(datasets, log_grouper, logger)
-    if unlabeled_dataset is not None:
-        log_group_data({"unlabeled": unlabeled_dataset}, log_grouper, logger)
-
-    # Initialize algorithm & load pretrained weights if provided
-    algorithm = initialize_algorithm(
-        config=config,
-        datasets=datasets,
-        train_grouper=train_grouper,
-        unlabeled_dataset=unlabeled_dataset,
-    )
-
-    model_prefix = get_model_prefix(datasets['train'], config)
-    model_prefix = model_prefix.replace(':', '_')
-    if not config.eval_only:
-        # Resume from most recent model in log_dir
-        resume_success = False
-        if resume:
-            save_path = model_prefix + 'epoch_last_model.pth'
-            if not os.path.exists(save_path):
-                epochs = [
-                    int(file.split('epoch_')[1].split('_')[0])
-                    for file in os.listdir(config.log_dir) if file.endswith('.pth')]
-                if len(epochs) > 0:
-                    latest_epoch = max(epochs)
-                    save_path = model_prefix + f'epoch_{latest_epoch}_model.pth'
-            try:
-                prev_epoch, best_val_metric = load(algorithm, save_path, device=config.device)
-                epoch_offset = prev_epoch + 1
-                logger.write(f'Resuming from epoch {epoch_offset} with best val metric {best_val_metric}')
-                resume_success = True
-            except FileNotFoundError:
-                pass
-        if resume_success == False:
-            epoch_offset=0
-            best_val_metric=None
-
-        # Log effective batch size
-        if config.gradient_accumulation_steps > 1:
-            logger.write(
-                (f'\nUsing gradient_accumulation_steps {config.gradient_accumulation_steps} means that')
-                + (f' the effective labeled batch size is {config.batch_size * config.gradient_accumulation_steps}')
-                + (f' and the effective unlabeled batch size is {config.unlabeled_batch_size * config.gradient_accumulation_steps}' 
-                    if unlabeled_dataset and config.unlabeled_batch_size else '')
-                + ('. Updates behave as if torch loaders have drop_last=False\n')
+            train_grouper = CombinatorialGrouper(
+                dataset=full_dataset,
+                groupby_fields=config.groupby_fields
             )
 
-        train(
-            algorithm=algorithm,
-            datasets=datasets,
-            general_logger=logger,
+        # Configure labeled torch datasets (WILDS dataset splits)
+        datasets = defaultdict(dict)
+        for split in full_dataset.split_dict.keys():
+            if split == 'train':
+                transform = train_transform
+                verbose = True
+            elif split == 'val':
+                transform = eval_transform
+                verbose = True
+            else:
+                transform = eval_transform
+                verbose = False
+            # Get subset
+            datasets[split]['dataset'] = full_dataset.get_subset(
+                split,
+                frac=config.frac,
+                transform=transform)
+
+            merged_df = pd.merge(datasets[split]['dataset'].dataset.metadata.iloc[datasets[split]['dataset'].indices], 
+                                pd.DataFrame({"usage": datasets[split]['dataset'].dataset._split_array}), 
+                                left_index=True, right_index=True)                  #add split information as a new column with metadata
+            usage_text = list(datasets[split]['dataset']._split_names.values())
+            merged_df['usage'] = merged_df['usage'].apply(lambda x:usage_text[int(x)] )     #convert split information id into text labels
+            merged_df['region'] = merged_df['region'].apply(lambda x:datasets[split]['dataset'].metadata_map['region'][x])
+            merged_df.to_csv(config.log_dir + "/split_" + split + "_metadata.csv")             #export metadata per training set
+
+            if split == 'train':
+                datasets[split]['loader'] = get_train_loader(
+                    loader=config.train_loader,
+                    dataset=datasets[split]['dataset'],
+                    batch_size=config.batch_size,
+                    uniform_over_groups=config.uniform_over_groups,
+                    grouper=train_grouper,
+                    distinct_groups=config.distinct_groups,
+                    n_groups_per_batch=config.n_groups_per_batch,
+                    **config.loader_kwargs)
+            else:
+                datasets[split]['loader'] = get_eval_loader(
+                    loader=config.eval_loader,
+                    dataset=datasets[split]['dataset'],
+                    grouper=train_grouper,
+                    batch_size=config.batch_size,
+                    **config.loader_kwargs)
+
+            # Set fields
+            datasets[split]['split'] = split
+            datasets[split]['name'] = full_dataset.split_names[split]
+            datasets[split]['verbose'] = verbose
+
+            # Loggers
+            datasets[split]['eval_logger'] = BatchLogger(
+                os.path.join(config.log_dir, f'{split}_eval.csv'), mode=mode, use_wandb=config.use_wandb
+            )
+            datasets[split]['algo_logger'] = BatchLogger(
+                os.path.join(config.log_dir, f'{split}_algo.csv'), mode=mode, use_wandb=config.use_wandb
+            )
+
+        if config.use_wandb:
+            initialize_wandb(config)
+
+        # Logging dataset info
+        # Show class breakdown if feasible
+        if config.no_group_logging and full_dataset.is_classification and full_dataset.y_size==1 and full_dataset.n_classes <= 10:
+            log_grouper = CombinatorialGrouper(
+                dataset=full_dataset,
+                groupby_fields=['y'])
+        elif config.no_group_logging:
+            log_grouper = None
+        else:
+            log_grouper = train_grouper
+        log_group_data(datasets, log_grouper, logger)
+        if unlabeled_dataset is not None:
+            log_group_data({"unlabeled": unlabeled_dataset}, log_grouper, logger)
+
+        # Initialize algorithm & load pretrained weights if provided
+        algorithm = initialize_algorithm(
             config=config,
-            epoch_offset=epoch_offset,
-            best_val_metric=best_val_metric,
+            datasets=datasets,
+            train_grouper=train_grouper,
             unlabeled_dataset=unlabeled_dataset,
         )
-    else:
-        if config.eval_epoch is None:
-            eval_model_path = model_prefix + 'epoch:best_model.pth'
-        else:
-            eval_model_path = model_prefix + f'epoch:{config.eval_epoch}_model.pth'
 
-        eval_model_path = eval_model_path.replace(':', '_')
+        model_prefix = get_model_prefix(datasets['train'], config)
+        if not config.eval_only:
+            # Resume from most recent model in log_dir
+            resume_success = False
+            if resume:
+                save_path = model_prefix + 'epoch:last_model.pth'
+                if not os.path.exists(save_path):
+                    epochs = [
+                        int(file.split('epoch:')[1].split('_')[0])
+                        for file in os.listdir(config.log_dir) if file.endswith('.pth')]
+                    if len(epochs) > 0:
+                        latest_epoch = max(epochs)
+                        save_path = model_prefix + f'epoch:{latest_epoch}_model.pth'
+                try:
+                    prev_epoch, best_val_metric = load(algorithm, save_path, device=config.device)
+                    epoch_offset = prev_epoch + 1
+                    logger.write(f'Resuming from epoch {epoch_offset} with best val metric {best_val_metric}')
+                    resume_success = True
+                except FileNotFoundError:
+                    pass
+            if resume_success == False:
+                epoch_offset=0
+                best_val_metric=None
 
-        best_epoch, best_val_metric = load(algorithm, eval_model_path, device=config.device)
-        if config.eval_epoch is None:
-            epoch = best_epoch
-        else:
-            epoch = config.eval_epoch
-        if epoch == best_epoch:
-            is_best = True
-        evaluate(
-            algorithm=algorithm,
-            datasets=datasets,
-            epoch=epoch,
-            general_logger=logger,
-            config=config,
-            is_best=is_best)
+            # Log effective batch size
+            if config.gradient_accumulation_steps > 1:
+                logger.write(
+                    (f'\nUsing gradient_accumulation_steps {config.gradient_accumulation_steps} means that')
+                    + (f' the effective labeled batch size is {config.batch_size * config.gradient_accumulation_steps}')
+                    + (f' and the effective unlabeled batch size is {config.unlabeled_batch_size * config.gradient_accumulation_steps}' 
+                        if unlabeled_dataset and config.unlabeled_batch_size else '')
+                    + ('. Updates behave as if torch loaders have drop_last=False\n')
+                )
 
-    if config.use_wandb:
-        wandb.finish()
+            train(
+                algorithm=algorithm,
+                datasets=datasets,
+                general_logger=logger,
+                config=config,
+                epoch_offset=epoch_offset,
+                best_val_metric=best_val_metric,
+                unlabeled_dataset=unlabeled_dataset,
+            )
+        elif not config.bagging:
+            if config.eval_epoch is None:
+                eval_model_path = model_prefix + 'epoch:best_model.pth'
+            else:
+                eval_model_path = model_prefix + f'epoch:{config.eval_epoch}_model.pth'
+
+            eval_model_path = eval_model_path.replace(':', '_')
+
+            best_epoch, best_val_metric = load(algorithm, eval_model_path, device=config.device)
+            if config.eval_epoch is None:
+                epoch = best_epoch
+            else:
+                epoch = config.eval_epoch
+            if epoch == best_epoch:
+                is_best = True
+            evaluate(
+                algorithm=algorithm,
+                datasets=datasets,
+                epoch=epoch,
+                general_logger=logger,
+                config=config,
+                is_best=is_best)
+        else:           #Bagging evaluation special case
+            print('Evaluating Bagging')
+            bag_pred = {}
+            split_pred = {}
+            split_acc = {}
+            result_line = pd.DataFrame()
+            if config.eval_epoch is None:       #by default use the last epoch model for each predictor
+                model_name = 'last_model.pth'
+            else:           #use a specific epoch for each predictor
+                model_name = f'{config.eval_epoch}_model.pth'
+            # Get Bagged models
+            directories = next(os.walk(config.log_dir))[1]
+            print(directories)
+            for folder in directories: 
+                print(folder)
+                if folder.startswith('bag'):    #getting bagging models from each directory
+                    bag_pred.update({folder:{}})
+                    file_names = os.listdir(config.log_dir + "/" + folder)
+                    for file in file_names:
+                        if file.endswith(model_name):
+                            print(file)
+                            bag_seed = re.sub('bag','',folder)
+                            eval_model_path = config.log_dir + "/" + folder + "/" + file
+                            load(algorithm, eval_model_path, device=config.device)
+                            config.seed = bag_seed          #setting seed parameter for log file names
+                            full_preds = evaluate(
+                                            algorithm=algorithm,
+                                            datasets=datasets,
+                                            epoch='Last',
+                                            general_logger=logger,
+                                            config=config,
+                                            is_best=False)              #get predictions
+                            for split, (epoch_y_pred, epoch_y_true, epoch_metadata) in full_preds.items():   #joining metadata to predictions
+                                df = pd.DataFrame({'pred cat': epoch_y_pred, 'true cat': epoch_y_true}) 
+                                df[['region','year','true true cat','split']] = epoch_metadata.detach().numpy()
+                                bag_pred[folder].update({split: df})
+                                split_pred.update({split:pd.DataFrame(0,index=[i for i in range(0,len(epoch_y_pred))], columns=[i for i in range(0,62)])})
+                                bag_pred[folder][split].to_csv(config.log_dir + "/" + folder +'_' + split +'.csv', index=False, header=bag_pred[folder][split].columns)
+            for bag, df_dict in bag_pred.items():       #aggregate predictions for voting
+                for split, df in df_dict.items():
+                    split_pred[split] += pd.get_dummies(list(df['pred cat'])+[i for i in range(0,62)]).iloc[:-62]
+            for split, df in split_pred.items():    #compile votes and compare with true cats to generate accuracy KPIs
+                split_acc.update({split: pd.concat([bag_pred[next(iter(bag_pred))][split]['region'],(df.idxmax(axis=1) == bag_pred[next(iter(bag_pred))][split]['true cat']).rename('correct')],axis=1)})
+                split_acc[split].to_csv(config.log_dir + "/" + split +'_acc.csv', index=False, header=split_acc[split].columns)
+                pivott = split_acc[split].drop(split_acc[split].index[split_acc[split]['region'] == 5]).pivot_table(index=['region'],columns=['correct'],aggfunc=len)  #dropping 'Other' region for worst region analysis     
+                print(split,split_acc[split]['correct'].sum()/len(split_acc[split]))
+                result_line['Average ' + split + ' Accuracy'] = [split_acc[split]['correct'].sum()/len(split_acc[split])]
+                result_line['Average Per Region ' + split + ' Accuracy'] = [pivott.div(pivott.sum(axis=1),axis=0)[True].mean()]
+                result_line['Worst Region ' + split + ' Accuracy'] = [pivott.div(pivott.sum(axis=1),axis=0)[True].min()]
+            result_line.to_csv(config.log_dir + "/result_summary.csv", index=False, header=result_line.columns)
+
+        if config.use_wandb:
+            wandb.finish()
+        for split in datasets:
+            datasets[split]['eval_logger'].close()
+            datasets[split]['algo_logger'].close()
+    sys.stdout.close()
     logger.close()
-    for split in datasets:
-        datasets[split]['eval_logger'].close()
-        datasets[split]['algo_logger'].close()
-
 
 if __name__ == '__main__':
     main()
