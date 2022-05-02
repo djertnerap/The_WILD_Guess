@@ -146,7 +146,7 @@ ensuring to update the following arguments to point to:
 
 `ypred_target`: The predictions for the OOD test set
 
-This will output a class weights file, which should be used to train a second model (using `run_will_expt.py`) with the additional argument `--erm_weights`.
+This will output a class weights file, which should be used to train a second model (can use the `run_bbse_exp.sh` helper script) with the additional argument `--erm_weights`.
 
 ## Distributionally and Outlier Robost Optimization (DORO)
 The DORO experiment can be run by utilizing the helper script found here:
