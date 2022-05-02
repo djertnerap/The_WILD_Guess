@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASE_DIR="/home/wcallag_gmail_com/Development/exp_logs"
-EXP_NAME="eval_erm_frac_1"
+EXP_NAME="eval_erm_frac_1" #Name of the experiment
 EXP_DIR="${BASE_DIR}/${EXP_NAME}"
 
 OUTPUT_NAME="train_weighted_erm_frac_1"

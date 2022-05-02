@@ -26,7 +26,7 @@ then
         python run_will_expt.py \
         -d fmow \
         --algorithm ERM \
-        --root_dir "${BASE_DIR}/Data" \
+        --root_dir "${BASE_DIR}/Data" \ 
         --loader_kwargs "num_workers=8" \
         --loader_kwargs pin_memory=True \
         --frac=${FRAC} \
