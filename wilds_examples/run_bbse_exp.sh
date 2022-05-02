@@ -6,8 +6,8 @@ EPOCHS=30 # Number of epochs to run
 
 # Used to create a directory for logging experiments
 BASE_NAME="erm_frac_1"
-ALG="_doro"
-PROJECT="doro"
+ALG="_bbse"
+PROJECT="bbse"
 
 TRAIN_NAME="train_${BASE_NAME}${ALG}"
 EVAL_NAME="eval_${BASE_NAME}${ALG}"
