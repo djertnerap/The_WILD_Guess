@@ -5,7 +5,7 @@ FRAC=1 # Fraction of data to use (between 0 and 1)
 EPOCHS=30 # Number of epochs to run
 
 # Used to create a directory for logging experiments
-BASE_NAME="erm_frac_1"
+BASE_NAME="erm_frac_1_test"
 ALG="_bbse"
 PROJECT="bbse"
 
@@ -26,14 +26,13 @@ then
         python run_will_expt.py \
         -d fmow \
         --algorithm ERM \
-        --root_dir "${BASE_DIR}/Data" \ 
+        --root_dir "${BASE_DIR}/Data" \
         --loader_kwargs "num_workers=8" \
         --loader_kwargs pin_memory=True \
         --frac=${FRAC} \
         --use_wandb=true \
         --log_dir="${LOG_DIR}/${TRAIN_NAME}" \
         --n_epochs=50 \
-        --erm_weights="${LOG_DIR}/${TRAIN_NAME}/class_weights.pth" \
         --wandb_kwargs project=${PROJECT} entity=the-wild-guess
     else
         echo "${LOG_DIR}/${TRAIN_NAME} does not exist. Create this directory before running experiment"
