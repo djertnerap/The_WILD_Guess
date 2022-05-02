@@ -13,7 +13,7 @@ from utils import save_model, save_pred, get_pred_prefix, get_model_prefix, coll
 from abstention.calibration import TempScaling
 from abstention.label_shift import EMImbalanceAdapter
 
-from wilds_examples.combinatorial_grouper_for_subsets import CombinatorialGrouperForSubsets
+from combinatorial_grouper_for_subsets import CombinatorialGrouperForSubsets
 
 
 def run_epoch(algorithm, dataset, general_logger, epoch, config, train, unlabeled_dataset=None):
