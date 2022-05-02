@@ -3,35 +3,36 @@
 The wilds_examples folder was taken directly from https://github.com/p-lambda/wilds/tree/main/examples. 
 We implemented our methods on top of what was already present in order to accelerate development iteration. 
 
-## Interesting informations
+## Prerequisites
+You can create a conda environment by utilizing the `requirements.txt` file.
 
-To train the model:
+## Relevant Preliminary Information
+
+To train the baseline model:
 - Go to the wilds folder
 - Execute: `python run_expt.py -d fmow --algorithm ERM  --root_dir ./data --download`
 
+If you have not downloaded the dataset previously, this will download the dataset. **Note: This dataset is 50GB in size.**
 
-To add data loading workers, add this argument to the `run_expt.py`: `--loader_kwargs "num_workers=8"`
-(8 because I have an 8-core CPU)
+To add data loading workers, add the following argument to the `run_expt.py`: `--loader_kwargs "num_workers=8"`
+(ie. 8 because I have an 8-core CPU)
 
 To speed up the data transfer between host and GPU: `--loader_kwargs pin_memory=True`
 
 The `wilds/configs/datasets.py` file  contains default  training config for each dataset.
 
-The `wilds/models/initializer` is the place where the model is created/initialized (`def initialize_model(config, d_out, is_featurizer=False)`)
+The `wilds/models/initializer` is the place where models are created/initialized (`def initialize_model(config, d_out, is_featurizer=False)`)
 
- 
-To run the Visual Transformer run:
-`python run_expt.py -d fmow --model vit --algorithm ERM  --root_dir ./data --loader_kwargs pin_memory=True --loader_kwargs "num_workers=26" --model_kwargs="model_size=B_16" --model_kwargs="pretrained=True" --device=0`
 
 
 ## Result sharing convention & analytics
 ### Logs & results sharing
 
-The logs files will be shared on the Google Drive in the `IFT6759 - The WILD Guess Team\Logs` folder. \
+The logs files will be shared on the Google Drive (contact team for permission) in the `IFT6759 - The WILD Guess Team\Logs` folder. \
 Naming convention: <first_name>\_\<model>\_\<method>\_<partial/full data>\_exp<#>         _ex: `Nathan_ERM_Baseline_full_exp1`_ \
 Link: https://drive.google.com/drive/folders/1-GfVHWnTdhvYA4-LM7mLIWidzdqZBQUE?usp=sharing
 
-The one line result in `kpi_extract.txt` extracted with the `run_analysis.py` script described below needs to be copied in the Excel tracker file along with the model training command line. \
+The one line result in `kpi_extract.txt` extracted with the `run_analyse.py` script described below needs to be copied in the Excel tracker file (contact team for permission) along with the model training command line. \
 Link: https://docs.google.com/spreadsheets/d/1Z0vVkII57D0G3OWWFtW8muDY7glydptM/edit?usp=sharing&ouid=109019793128097247425&rtpof=true&sd=true
   
 ### Log visualisation \& results extract with homemade script
@@ -51,11 +52,13 @@ How to use the script:
 
 1. `pip install wandb`
 2. `wandb login`
-3. `--use_wandb=True --wandb_kwargs project="wilds" entity="the-wild-guess"`
+3. Add the following arguments to `run_expt.py`: `--use_wandb=True --wandb_kwargs project="wilds" entity="the-wild-guess"`
 
-Get online to view results... (procedure TBD)
+You can then view experimental results here: https://wandb.ai/the-wild-guess
 
-## Dataset split exploration
+(Note: Access is required. Contact team for permission.)
+
+## Dataset split exploration and Methodology
 ### Bootstrapping for evenly distributed splits
 
 The Bootstrap process is part of the WILDS package. The following parameters can be used to configure how Bootstrap is performed: \
@@ -73,19 +76,35 @@ In order to preserve the WILDS package code coherence, the Bagging method has be
 The training part of the Bagging process is fairly simple. The main script `run_expt.py` from WILDS package has been slightly tweaked to introduce a training loop which outputs a predictor for each of the defined Bagging seeds through the regular training process. This generic method allows flexibility as any kind of model can be trained with Bagging algo. \
 To enable the Bagging training, the `--bagging` parameter must be set to TRUE, the `--bagging_size` parameter must have the number of desired predictors and the `--bagging_seeds` must a a list of unique seeds to train each individual predictor with a different subset of data. Note : the `--frac` parameter must be below 1 in order to have different subsets of data for each predictor ; otherwise the Bagging process will not have any impact. \
 \
-Here is a command line example to run the training part of Bagging: \
-\
-`python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data --frac 0.5 --batch_size 30 \`\
-`--seed 0 --n_epoch 4 --train_load standard --uniform_over_groups --groupby_fields y \`\
-`--bagging --bagging_seeds 0 1 2 3 4 5 6 7 --bagging_size 8 --save_step 1`
+Here is a command line example to run the training part of Bagging:
+
+```commandline
+python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data
+--frac 0.5
+--batch_size 30
+--seed 0
+--n_epoch 4
+--train_load standard
+--uniform_over_groups
+--groupby_fields y
+--bagging
+--bagging_seeds 0 1 2 3 4 5 6 7
+--bagging_size 8
+--save_step 1
+```
 
 #### Evaluation
 The Bagging evaluation is performed when the `--bagging` and `--eval_only` parameters are TRUE. The `--eval_epoch` parameter can select a specific epoch at which predictors were trained to make the evaluation. If omitted, the last epoch is used by default. Furthermore, the training log folder must be inputed in `--log_dir` parameter. During the Bagging evaluation process, the predictions from each predictor are aggregated to select the most occuring category as the final prediction.\
 Here is an example of a command line for Bagging evaluation:\
-\
-`python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data \`\
-`--log_dir "./logs" \`\
-`--frac 1 --bagging --eval_only --eval_epoch 4`
+
+```commandline
+python ./examples/run_expt.py -d fmow --algorithm ERM  --root_dir ./data
+--log_dir "./logs"
+--frac 1
+--bagging
+--eval_only
+--eval_epoch 4
+```
 
 ## Model evaluation with label shift correction
 
@@ -112,8 +131,8 @@ In order to estimate label shift per grouping in the test sets, add the argument
 
 You can group by either region, year or both depending on which are present in the argument.
 
-### Label Shift Correction w/ Black Box Predictors
-Note: The following method requires training two different models. The first model (baseline) can be trained using the standard ERM approach. After the baseline model is trained, we need to estimate the target label distribution on the test set. This can be done by running the following:
+## Label Shift Correction w/ Black Box Predictors
+Note: The following method requires training two different models. The first model (baseline) can be trained using the standard ERM approach (a helper script is available at `wilds_examples/run_bbse_exp.sh`). After the baseline model is trained, we need to estimate the target label distribution on the test set. This can be done by running the following:
 
 `wilds_examples/bbse/run_estimate_target_distribution.sh`
 
@@ -127,4 +146,22 @@ ensuring to update the following arguments to point to:
 
 `ypred_target`: The predictions for the OOD test set
 
-This will output a class weights file, which should be used to train a second model (using `run_expt.py`) with the additional argument `--erm_weights`.
+This will output a class weights file, which should be used to train a second model (using `run_will_expt.py`) with the additional argument `--erm_weights`.
+
+## Distributionally and Outlier Robost Optimization (DORO)
+The DORO experiment can be run by utilizing the helper script found here:
+
+`wilds_examples/run_doro_exp.sh`
+
+
+
+## Visual Transformer
+To run the Visual Transformer run:
+
+```commandline
+python run_expt.py -d fmow --model vit --algorithm ERM --root_dir ./data
+--loader_kwargs pin_memory=True
+--loader_kwargs "num_workers=26" 
+--model_kwargs="model_size=B_16"
+--model_kwargs="pretrained=True"
+--device=0```
